@@ -11,11 +11,15 @@
       }
     },
     "frontend": {
-      "dependencies": ["test"],
+      "dependencies": [
+        "test"
+      ],
       "frontend": {
         "entrypoint": "frontend/build/index.html"
       },
-      "source": ["frontend/build"],
+      "source": [
+        "frontend/build"
+      ],
       "type": "assets"
     },
     "internet-identity": {
@@ -28,6 +32,11 @@
           "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
         }
       }
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "mops sources"
     }
   }
 }
