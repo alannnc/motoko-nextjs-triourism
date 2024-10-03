@@ -1,3 +1,4 @@
+import Prim "mo:⛔";
 import Map "mo:map/Map";
 import { phash; nhash } "mo:map/Map";
 import Principal "mo:base/Principal";
@@ -9,9 +10,10 @@ actor {
     type UserKind = Types.UserKind;
     type SignUpResult = Types.SignUpResult;
     type Calendar = Types.Calendar;
-    type ListingId = Nat;
+    type ListingId = Types.ListingId;
     type ListingDataInit = Types.ListingDataInit;
     type Listing = Types.Listing;
+    type UpdateResult = Types.UpdateResult;
 
     type PublishResult = {#Ok: ListingId; #Err: Text};
     
@@ -73,13 +75,16 @@ actor {
 
     //////////////////////////////// CRUD Listing /////////////////////////////////////
 
-    public shared ({ caller }) func publishListing(data: ListingDataInit): async PublishResult {
-        
+    public shared ({ caller }) func publishListing(data: ListingDataInit): async PublishResult {     
         let user = Map.get<Principal, User>(users, phash, caller);
         switch user {
-            case null {return #Err("Usuario no registrado")};
-            case (?User){
-                if(not userIsVerificated(caller)){ return #Err("Usuario no verificado") };
+            case null {
+                return #Err("Usuario no registrado");
+            };
+            case (?user){
+                if(not userIsVerificated(caller)){
+                    return #Err("Usuario no verificado");
+                };
                 lastListingId += 1;
                 let newListing: Listing = {
                     owner = caller;
@@ -89,29 +94,61 @@ actor {
                     price = data.price;
                     kind = data.kind;
                 };
-
+                var updateListingArray: [ListingId] = [];
+                var notPrevious = true;
+                var position = 0;
+                var i = 0;
+                while(i < user.userKind.size()){
+                    switch (user.userKind[i]){
+                        case(#Host(listingIdArray)){
+                            notPrevious := false;
+                            position := i;
+                            updateListingArray := Prim.Array_tabulate<ListingId>( 
+                                listingIdArray.size() + 1,
+                                func x {
+                                    if(x != listingIdArray.size()){
+                                       listingIdArray[x];
+                                    }
+                                    else {newListing.id}
+                                }
+                            )
+                        };
+                        case(_){};
+                    };
+                    i += 1;
+                };
+                if(notPrevious){ updateListingArray := [newListing.id] };
+                let updateKinds = Prim.Array_tabulate<UserKind>(
+                    user.userKind.size() + (if(notPrevious){ 1 } else { 0 }),
+                    func i { if(i == position) {
+                            #Host(updateListingArray)
+                        }
+                        else {
+                            user.userKind[i]
+                        }
+                    }
+                );
                 ignore Map.put<ListingId, Listing>(listings, nhash, lastListingId, newListing);
-
-
+                ignore Map.put<Principal,User>(users, phash, caller, {user with userKind = updateKinds});
+                return #Ok(newListing.id)
             }
         };
+    };
 
-
-        
-
-
-        /* init
-         public type ListingDataInit = {
-            owner: Principal;
-            address: Text;
-            price: Price;
-            kind: ListingKind;
-        };
-        */
-
-
-
-    }
+    public shared ({ caller }) func updatePrices(id: ListingId, updatedPrices: Types.Price): async  UpdateResult{
+        let listing = Map.get(listings, nhash, id);
+        switch listing {
+            case null {
+                return #Err("Error Listing ID");
+            };
+            case (?listing) {
+                if(listing.owner != caller){ return #Err("Unauthorized caller") };
+                ignore Map.put<ListingId, Listing>(listings, nhash, id, {listing with prices = updatedPrices});
+                return #Ok
+            };
+        } 
+    };
+    
 
 
 

@@ -1,4 +1,3 @@
-import Map "mo:map/Map";
 
 module {
   ////////////////////////////// Users /////////////////////////////////////
@@ -46,6 +45,7 @@ module {
         kind: ListingKind;
     };
 
+
     public type Listing = {
         id: Nat; // Example L234324
         owner: Principal;
@@ -55,7 +55,12 @@ module {
         kind: ListingKind;
     };
 
-    public type ListingId = Text;
+    public type ListingId = Nat;
+
+    public type UpdateResult = {
+        #Ok;
+        #Err: Text;
+    };
 
     public type ListingKind = {
         #House;
