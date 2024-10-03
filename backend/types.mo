@@ -43,6 +43,7 @@ module {
         address: Text;
         price: Price;
         kind: ListingKind;
+        photos: [Blob];
     };
 
 
@@ -51,8 +52,16 @@ module {
         owner: Principal;
         calendar: Calendar;
         address: Text;
+        photos: [Blob];
         price: Price;
         kind: ListingKind;
+    };
+
+    public type ListingPreview = {
+        id: Nat;
+        address: Text;
+        photos: [Blob];
+        price: Price;
     };
 
     public type ListingId = Nat;

@@ -14,6 +14,7 @@ actor {
     type ListingDataInit = Types.ListingDataInit;
     type Listing = Types.Listing;
     type UpdateResult = Types.UpdateResult;
+    type ListingPreview = Types.ListingPreview;
 
     type PublishResult = {#Ok: ListingId; #Err: Text};
     
@@ -90,6 +91,7 @@ actor {
                     owner = caller;
                     id = lastListingId;
                     calendar: Calendar = {reservations = []};
+                    photos = data.photos;
                     address = data.address;
                     price = data.price;
                     kind = data.kind;
@@ -133,6 +135,22 @@ actor {
                 return #Ok(newListing.id)
             }
         };
+    };
+
+    public func getListingPreviews(): async [ListingPreview] {
+        let values = Map.toArray<ListingId, Listing>(listings);
+        Prim.Array_tabulate<ListingPreview>(
+            values.size(),
+            func x {
+                {
+                    id = values[x].1.id;
+                    address = values[x].1.address;
+                    photos = values[x].1.photos;
+                    price =values[x].1.price;
+                }
+            }
+
+        );
     };
 
     public shared ({ caller }) func updatePrices(id: ListingId, updatedPrices: Types.Price): async  UpdateResult{
