@@ -26,17 +26,36 @@ module {
         #Host: [ListingId];
     };
 
+    public type SignUpResult = { #Ok : User; #Err : Text };
+    // type GetProfileError = {
+    //     #userNotAuthenticated;
+    //     #profileNotFound;
+    // };
+
+    // type CreateProfileError = {
+    //     #profileAlreadyExists;
+    //     #userNotAuthenticated;
+    // };
+
   ///////////////////////////////// Listing /////////////////////////////////
     
-    public type Listing = {
-        calendarId: Nat;
-        id: Text; // Example L234324
+    public type ListingDataInit = {
+        // owner: Principal;
         address: Text;
         price: Price;
         kind: ListingKind;
     };
 
-    type ListingId = Text;
+    public type Listing = {
+        id: Nat; // Example L234324
+        owner: Principal;
+        calendar: Calendar;
+        address: Text;
+        price: Price;
+        kind: ListingKind;
+    };
+
+    public type ListingId = Text;
 
     public type ListingKind = {
         #House;
@@ -47,7 +66,7 @@ module {
     public type Price = {
         #PerNight: Nat;
         #PerWeek: Nat;
-        #CustomPeriod: Map.Map<Nat8, Nat> // Cantidad de dias/Precio. Aplicable a partir de 3 por ejemplo
+        #CustomPeriod: [{dais: Nat; price: Nat}];
     };
 
     public type Rules = { // Ejemplo de Rule: {key = "Horarios"; value = "Sin ruidos molestos entre las 22:00 y las 8:00"}
@@ -57,13 +76,34 @@ module {
 
   ///////////////////////////////// Reservations /////////////////////////////
 
-    public type Reservations = {
-
+    public type Reservation = {
+        checkIn: Int; //Timestamp
+        checkOut: Int;
+        applicant: Principal;
+        guest: Text;
     };
-    
-
 
     type ReviewsId = Text;
+
+    type Node<T> = {
+        value: T;
+        rigth: ?Node<T>;
+        left: ?Node<T>;
+    };
+
+    // public func initTree<T>(value: T): Node<T> {
+    //     {value; rigth = null; left = null};
+    // };
+
+    // public func put<T>(value: T, f: (T,T) -> {#before; #after}): {#before; #after} {
+        
+    // };
+
+    public type Calendar = {
+        //LinstingId: Nat;
+        reservations: [Reservation]; //TODO La lista debe estar ordenada y sin solapamientos ver metodos de inserción
+
+    }
 
 } 
 
