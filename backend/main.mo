@@ -153,6 +153,16 @@ actor {
         );
     };
 
+    public func getListingById(id: ListingId): async {#Ok: Listing; #Err: Text} {
+        let listing = Map.get<ListingId, Listing>(listings, nhash, id);
+        return switch listing {
+            case null { #Err("Error Listing ID")};
+            case (?listing) {
+                #Ok(listing);
+            };
+        }
+    };
+
     public shared ({ caller }) func updatePrices(id: ListingId, updatedPrices: Types.Price): async  UpdateResult{
         let listing = Map.get(listings, nhash, id);
         switch listing {
