@@ -66,6 +66,17 @@ shared ({ caller }) actor class Triourism () = this {
     };
 
     //////////////////////////////// CRUD Data User ///////////////////////////////////
+
+    public shared ({ caller }) func loadAvatar(avatar: Blob): async {#Ok; #Err: Text} {
+        let user = Map.get<Principal, User>(users, phash, caller);
+        switch user {
+            case null {#Err("There is no user associated with the caller")};
+            case(?user) {
+                ignore Map.put<Principal, User>(users, phash, caller, {user with avatar = ?avatar});
+                #Ok
+            }
+        }
+    };
     // TODO
     ///////////////////////////////////////////////////////////////////////////////////
 
