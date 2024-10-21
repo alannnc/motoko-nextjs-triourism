@@ -22,7 +22,7 @@ module {
     public type UserKind = {
         #Initial;
         #Guest: [ReviewsId];
-        #Host: [ListingId];
+        #Host: [HousingId];
     };
 
     public type SignUpResult = { #Ok : User; #Err : Text };
@@ -36,42 +36,42 @@ module {
     //     #userNotAuthenticated;
     // };
 
-  ///////////////////////////////// Listing /////////////////////////////////
+  ///////////////////////////////// Housing /////////////////////////////////
     
-    public type ListingDataInit = {
+    public type HousingDataInit = {
         // owner: Principal;
         address: Text;
-        price: Price;
-        kind: ListingKind;
-        photos: [Blob];
+        prices: [Price];
+        kind: HousingKind;
     };
 
 
-    public type Listing = {
+    public type Housing = {
         id: Nat; // Example L234324
         owner: Principal;
         calendar: Calendar;
         address: Text;
         photos: [Blob];
-        price: Price;
-        kind: ListingKind;
+        thumbnail: Blob; // Se recomienda la foto principal en tamaño reducido
+        prices: [Price];
+        kind: HousingKind;
     };
 
-    public type ListingPreview = {
+    public type HousingPreview = {
         id: Nat;
         address: Text;
-        photos: [Blob];
-        price: Price;
+        thumbnail: Blob;
+        prices: [Price];
     };
 
-    public type ListingId = Nat;
+    public type HousingId = Nat;
 
     public type UpdateResult = {
         #Ok;
         #Err: Text;
     };
 
-    public type ListingKind = {
+    public type HousingKind = {
         #House;
         #Hotel_room;
         #RoomWithSharedSpaces: [Rules]; //Hostels/Pensiones
@@ -114,7 +114,7 @@ module {
     // };
 
     public type Calendar = {
-        //LinstingId: Nat;
+        //HousingId: Nat;
         reservations: [Reservation]; //TODO La lista debe estar ordenada y sin solapamientos ver metodos de inserción
 
     }

@@ -2,6 +2,14 @@
   "version": 1,
   "dfx": "0.20.1",
   "canisters": {
+    "backend": {
+      "main": "backend/main.mo",
+      "type": "motoko",
+      "declarations": {
+        "output": "frontend/src/declarations/backend"
+      }
+
+    },
     "test": {
       "type": "motoko",
       "main": "backend/test/main.mo",
