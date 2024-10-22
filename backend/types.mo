@@ -40,6 +40,7 @@ module {
     
     public type HousingDataInit = {
         // owner: Principal;
+        minReservationLeadTime: Int; //valor en horas de anticipación para efectuar una reserva
         address: Text;
         prices: [Price];
         kind: HousingKind;
@@ -49,10 +50,21 @@ module {
     public type Housing = {
         id: Nat; // Example L234324
         owner: Principal;
-        calendar: Calendar;
+        calendar: [var CalendaryPart];
+        minReservationLeadTimeNanoSeg: Int; // valor en nanosegundos de anticipacion para efectuar una reserva
         address: Text;
         photos: [Blob];
         thumbnail: Blob; // Se recomienda la foto principal en tamaño reducido
+        prices: [Price];
+        kind: HousingKind;
+    };
+
+    public type ShareableHousing = {
+        id: Nat;
+        owner: Principal;
+        calendar: [CalendaryPart];
+        photos: [Blob];
+        thumbnail: Blob;
         prices: [Price];
         kind: HousingKind;
     };
@@ -88,36 +100,28 @@ module {
         value: Text
     };
 
+    public type ReviewsId = Text;
   ///////////////////////////////// Reservations /////////////////////////////
 
     public type Reservation = {
-        checkIn: Int; //Timestamp
-        checkOut: Int;
+        checkIn: Int;   //Timestamp NanoSeg
+        checkOut: Int;  //Temestamp NanoSeg 
         applicant: Principal;
         guest: Text;
     };
 
-    type ReviewsId = Text;
+    // La primer posicion es siempre el dia actual con lo cual cada vez que se consulta se tiene que actualizar antes
+    // Para facilitar la implementacion inicial se considera una lista de Disponibility mutable de 30 posiciones
+    public type Disponibility = {day: Int; available: Bool};
+    // public type Calendar = [var Disponibility];
 
-    type Node<T> = {
-        value: T;
-        rigth: ?Node<T>;
-        left: ?Node<T>;
-    };
+    // El rango de no disponibilidad se establece con el campo day y el campo checkOut de reservation
+    public type CalendaryPart = Disponibility and {reservation: ?Reservation};
+    // public type Calendary = [var CalendaryPart];
 
-    // public func initTree<T>(value: T): Node<T> {
-    //     {value; rigth = null; left = null};
-    // };
+    // public type FrozenCalendar = [CalendaryPart]
 
-    // public func put<T>(value: T, f: (T,T) -> {#before; #after}): {#before; #after} {
-        
-    // };
 
-    public type Calendar = {
-        //HousingId: Nat;
-        reservations: [Reservation]; //TODO La lista debe estar ordenada y sin solapamientos ver metodos de inserción
-
-    }
 
 } 
 

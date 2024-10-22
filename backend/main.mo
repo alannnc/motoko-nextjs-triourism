@@ -6,23 +6,44 @@ import Principal "mo:base/Principal";
 import Buffer "mo:base/Buffer";
 import Blob "mo:base/Blob";
 import Types "types";
-
+import Int "mo:base/Int";
+import { now } "mo:base/Time";
+import Rand "mo:random/Rand";
+ 
 shared ({ caller }) actor class Triourism () = this {
 
     type User = Types.User;
     type UserKind = Types.UserKind;
     type SignUpResult = Types.SignUpResult;
-    type Calendar = Types.Calendar;
+    type CalendaryPart = Types.CalendaryPart;
+    type Reservation = Types.Reservation;
     type HousingId = Types.HousingId;
     type HousingDataInit = Types.HousingDataInit;
     type Housing = Types.Housing;
-    type UpdateResult = Types.UpdateResult;
+    type ShareableHousing = Types.ShareableHousing;
     type HousingPreview = Types.HousingPreview;
-    type ResultHousingPaginate = {#Ok: {array: [HousingPreview]; next: Bool}; #Err: Text};
 
+    type UpdateResult = Types.UpdateResult;
+    type ResultHousingPaginate = {#Ok: {array: [HousingPreview]; next: Bool}; #Err: Text};
     type PublishResult = {#Ok: HousingId; #Err: Text};
 
+    type ReservationResult = {
+        #Ok: {
+            houstingId: HousingId;
+            data: Reservation;
+            paymentCode: Nat;
+            // msg: Text;   
+        };
+        #Err: Text;        
+    };
+
+    // TODO revisar day, actualemnte es el timestamp de una hora especifica que delimita el comienzo del dia 
+    
+
     stable let DEPLOYER = caller;
+    let ramdomGenerator = Rand.Rand();
+
+    // stable var minReservationLeadTime = 24 * 60 * 60 * 1_000_000_000; // 24 horas en nanosegundos
     
     stable let admins = Set.new<Principal>();
     ignore Set.put<Principal>(admins, phash, caller);
@@ -80,10 +101,21 @@ shared ({ caller }) actor class Triourism () = this {
     // TODO
     ///////////////////////////////////////////////////////////////////////////////////
 
-    ///////////////////////////// Private functions ///////////////////////////////////
+  ///////////////////////////// Private functions ///////////////////////////////////
     func isAdmin(p: Principal): Bool { Set.has<Principal>(admins, phash, p) };
 
     func isUser(p: Principal): Bool { Map.has<Principal, User>(users, phash, p)};
+
+    func initCalendary(): [var CalendaryPart]{
+        Prim.Array_init<CalendaryPart>(
+            30,
+            {day= 0; available = true; reservation = null}
+        )
+    };
+
+    func freezeCalendar(c: [var CalendaryPart]): [CalendaryPart]{
+        Prim.Array_tabulate<CalendaryPart>(c.size(), func i = c[i])
+    };
 
 
     /////////////////////////// Manage admins functions /////////////////////////////////
@@ -105,6 +137,8 @@ shared ({ caller }) actor class Triourism () = this {
             #Ok
         } 
     };
+
+  /////////////////////////// Admin functions 
 
     
   /////////////////////////////// Verification process //////////////////////////////
@@ -133,8 +167,9 @@ shared ({ caller }) actor class Triourism () = this {
                 lastHousingId += 1;
                 let newHousing: Housing = {
                     owner = caller;
+                    minReservationLeadTimeNanoSeg = data.minReservationLeadTime * 60 * 60 * 1_000_000_000;
                     id = lastHousingId;
-                    calendar: Calendar = {reservations = []};
+                    calendar: [var CalendaryPart] = initCalendary();
                     photos: [Blob] = [];
                     thumbnail: Blob = "";
                     address = data.address;
@@ -252,15 +287,44 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public query func getHousingById(id: HousingId): async {#Ok: Housing; #Err: Text} {
+    public query func getHousingById(id: HousingId): async {#Ok: ShareableHousing; #Err: Text} {
         let housing = Map.get<HousingId, Housing>(housings, nhash, id);
         return switch housing {
             case null { #Err("Error Housing ID")};
             case (?housing) {
-                #Ok(housing);
+                #Ok({housing with calendar = freezeCalendar(housing.calendar)});
             };
         }
     };
+
+
+  ///////////////////////////////// Reservations /////////////////////////////////////////
+
+    public shared ({ caller }) func requestReservation({id: HousingId; data: Reservation}):async ReservationResult {
+        let housing = Map.get<HousingId, Housing>(housings, nhash, id);
+        switch housing {
+            case null {
+                #Err("No hay un housing asociado al id proporcionado");
+            };
+            case (?housing) {
+                if(now() + housing.minReservationLeadTimeNanoSeg < data.checkIn){ 
+                    return #Err("Las reservas se solicitan con un minimo de anticipacion de " #
+                    Int.toText(housing.minReservationLeadTimeNanoSeg /(60 * 60 * 1_000_000_000)) #
+                    " horas");
+                };
+                let responseReservation = {
+                    houstingId = id;
+                    data;
+                    paymentCode = await ramdomGenerator.randRange(1_000_000_000_000_000_000_000, 9_999_999_999_999_999_999_999)
+                };
+
+                #Ok( responseReservation )
+            };
+        }    
+    };
+
+    public shared ({ caller }) func confirmReservation(){};
+
 
 
 
