@@ -472,7 +472,6 @@ shared ({ caller }) actor class Triourism () = this {
                             }
                         };
                         #Err("Incorrect payment verification")
-
                     }
                 }
             }
