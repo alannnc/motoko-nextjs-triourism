@@ -1,4 +1,4 @@
-
+import Map "mo:map/Map";
 module {
   ////////////////////////////// Users /////////////////////////////////////
 
@@ -51,6 +51,7 @@ module {
         id: Nat; // Example L234324
         owner: Principal;
         calendar: [var CalendaryPart];
+        reservationRequests: Map.Map<Nat, Reservation>; 
         minReservationLeadTimeNanoSeg: Int; // valor en nanosegundos de anticipacion para efectuar una reserva
         address: Text;
         photos: [Blob];
@@ -59,14 +60,20 @@ module {
         kind: HousingKind;
     };
 
-    public type ShareableHousing = {
-        id: Nat;
-        owner: Principal;
-        calendar: [CalendaryPart];
-        photos: [Blob];
-        thumbnail: Blob;
-        prices: [Price];
-        kind: HousingKind;
+    public type HousingResponse = {
+        #Start : {id: Nat;
+            owner: Principal;
+            calendar: [CalendaryPart];
+            photo: Blob;
+            thumbnail: Blob;
+            prices: [Price];
+            kind: HousingKind;
+            hasNextPhoto: Bool;
+        };
+        #OnlyPhoto :{
+            photo: Blob;
+            hasNextPhoto: Bool;
+        }
     };
 
     public type HousingPreview = {

@@ -9,6 +9,9 @@ import Types "types";
 import Int "mo:base/Int";
 import { now } "mo:base/Time";
 import Rand "mo:random/Rand";
+
+////////////// Debug imports ////////////////
+import { print } "mo:base/Debug";
  
 shared ({ caller }) actor class Triourism () = this {
 
@@ -20,7 +23,7 @@ shared ({ caller }) actor class Triourism () = this {
     type HousingId = Types.HousingId;
     type HousingDataInit = Types.HousingDataInit;
     type Housing = Types.Housing;
-    type ShareableHousing = Types.ShareableHousing;
+    type HousingResponse = Types.HousingResponse;
     type HousingPreview = Types.HousingPreview;
 
     type UpdateResult = Types.UpdateResult;
@@ -29,6 +32,7 @@ shared ({ caller }) actor class Triourism () = this {
 
     type ReservationResult = {
         #Ok: {
+            reservationId: Nat;
             houstingId: HousingId;
             data: Reservation;
             paymentCode: Nat;
@@ -166,6 +170,7 @@ shared ({ caller }) actor class Triourism () = this {
                 };
                 lastHousingId += 1;
                 let newHousing: Housing = {
+                    reservationRequests = Map.new<Nat, Reservation>();
                     owner = caller;
                     minReservationLeadTimeNanoSeg = data.minReservationLeadTime * 60 * 60 * 1_000_000_000;
                     id = lastHousingId;
@@ -267,6 +272,27 @@ shared ({ caller }) actor class Triourism () = this {
         } 
     };
 
+    public shared ({ caller }) func setMinReservationLeadTime({id: HousingId; hours: Nat}):async  {#Ok; #Err: Text} {
+        let housing = Map.get<HousingId, Housing>(housings, nhash, id);
+        switch housing {
+            case null {
+                return #Err("No hay un housing asociado al ID porporcionado");
+            };
+            case (?housing) {
+                if(housing.owner != caller){
+                    return #Err("El caller no es dueño del housing");
+                };
+                ignore Map.put<HousingId, Housing>(
+                    housings, 
+                    nhash, 
+                    id, 
+                    {housing with minReservationLeadTimeNanoSeg = hours * 60 * 60 * 1_000_000_000});
+                #Ok;
+            }
+
+        }
+    };
+
 
   ////////////////////////////////// Getters ///////////////////////////////////////////
 
@@ -287,16 +313,30 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public query func getHousingById(id: HousingId): async {#Ok: ShareableHousing; #Err: Text} {
-        let housing = Map.get<HousingId, Housing>(housings, nhash, id);
+    public query func getHousingById({housingId: HousingId;  photoIndex: Nat}): async {#Ok: HousingResponse; #Err: Text} {
+        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         return switch housing {
             case null { #Err("Error Housing ID")};
             case (?housing) {
-                #Ok({housing with calendar = freezeCalendar(housing.calendar)});
+                if(photoIndex == 0){
+                    let housingResponse: HousingResponse = #Start({
+                        housing with
+                        calendar = freezeCalendar(housing.calendar);
+                        photo = housing.photos[photoIndex];
+                        hasNextPhoto = photoIndex < housing.photos.size()
+                    });
+                    #Ok(housingResponse);
+                } else {
+                    let housingResponse: HousingResponse = #OnlyPhoto({
+                        housing with
+                        photo = housing.photos[photoIndex];
+                        hasNextPhoto = photoIndex < housing.photos.size()
+                    });
+                    #Ok(housingResponse)
+                }
             };
         }
     };
-
 
   ///////////////////////////////// Reservations /////////////////////////////////////////
 
@@ -307,17 +347,24 @@ shared ({ caller }) actor class Triourism () = this {
                 #Err("No hay un housing asociado al id proporcionado");
             };
             case (?housing) {
-                if(now() + housing.minReservationLeadTimeNanoSeg < data.checkIn){ 
+                print("Momento actual en NanoSeg:  " # Int.toText(now()/(60*60*1000000000)));
+                print("horas de anticipacio:       " # Int.toText(housing.minReservationLeadTimeNanoSeg /(60*60*1000000000)));
+                print("Reserva a partir de fecha:  " # Int.toText((now() + housing.minReservationLeadTimeNanoSeg)/(60*60*1000000000)));
+                print("Fecha de ingreso silicitada " # Int.toText(data.checkIn/(60*60*1000000000)));
+                if(now() + housing.minReservationLeadTimeNanoSeg > data.checkIn){ 
                     return #Err("Las reservas se solicitan con un minimo de anticipacion de " #
                     Int.toText(housing.minReservationLeadTimeNanoSeg /(60 * 60 * 1_000_000_000)) #
                     " horas");
                 };
+                let reservationId = await ramdomGenerator.randRange(1_000_000_000, 9_999_999_999);
                 let responseReservation = {
                     houstingId = id;
+                    reservationId;
                     data;
                     paymentCode = await ramdomGenerator.randRange(1_000_000_000_000_000_000_000, 9_999_999_999_999_999_999_999)
                 };
-
+                
+                ignore Map.put<Nat, Reservation>(housing.reservationRequests, nhash, reservationId, data );
                 #Ok( responseReservation )
             };
         }    

@@ -26,7 +26,8 @@ publicacion de hosting
 
 ```
 dfx canister call backend publishHousing '(record {
-    address = "San Mattin 555"; 
+    address = "San Martin 555";
+    minReservationLeadTime = 24;
     prices = vec {
         variant {PerNight = 50};
         variant {PerWeek = 550}
@@ -62,6 +63,20 @@ dfx canister call backend updatePrices '(record {
         variant {PerNight = 400};
         variant {PerWeek = 2800};
     }
+})'
+```
+
+Solicitud de reserva
+
+```
+dfx canister call backend requestReservation '(record {
+    id = 1 : nat;
+    data = record {
+      applicant = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
+      checkIn = 1_729_636_239_000_000_000 : int;
+      guest = "Ariel";
+      checkOut = 1_729_722_639_000_000_000 : int;
+    };
 })'
 ```
 
