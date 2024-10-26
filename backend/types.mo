@@ -40,7 +40,7 @@ module {
     
     public type HousingDataInit = {
         // owner: Principal;
-        minReservationLeadTime: Int; //valor en horas de anticipación para efectuar una reserva
+        minReservationLeadTimeHours: Int; //valor en horas de anticipación para efectuar una reserva
         address: Text;
         prices: [Price];
         kind: HousingKind;

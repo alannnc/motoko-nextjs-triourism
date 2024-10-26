@@ -45,6 +45,7 @@ shared ({ caller }) actor class Triourism () = this {
     
 
     stable let DEPLOYER = caller;
+    let NANO_SEG_PER_HOUR = 60 * 60 * 1_000_000_000;
     let ramdomGenerator = Rand.Rand();
 
     // stable var minReservationLeadTime = 24 * 60 * 60 * 1_000_000_000; // 24 horas en nanosegundos
@@ -121,6 +122,23 @@ shared ({ caller }) actor class Triourism () = this {
         Prim.Array_tabulate<CalendaryPart>(c.size(), func i = c[i])
     };
 
+    func updateCalendar(c: [var CalendaryPart]): [var CalendaryPart] {
+        var indexDay = 0;
+        var displace = 0;
+        while(now() + NANO_SEG_PER_HOUR * 24 > c[indexDay].day){
+            displace += 1;
+            indexDay += 1;
+        };
+        let outPutArray = c;
+        var index = 0;
+        while(index + displace <= c.size()){
+            outPutArray[index] := c[index + displace];
+            outPutArray[index + displace] := {day =  0; available = true; reservation = null};
+            index += 1;
+        };
+        outPutArray;
+    };
+
 
     /////////////////////////// Manage admins functions /////////////////////////////////
 
@@ -172,7 +190,7 @@ shared ({ caller }) actor class Triourism () = this {
                 let newHousing: Housing = {
                     reservationRequests = Map.new<Nat, Reservation>();
                     owner = caller;
-                    minReservationLeadTimeNanoSeg = data.minReservationLeadTime * 60 * 60 * 1_000_000_000;
+                    minReservationLeadTimeNanoSeg = data.minReservationLeadTimeHours * NANO_SEG_PER_HOUR;
                     id = lastHousingId;
                     calendar: [var CalendaryPart] = initCalendary();
                     photos: [Blob] = [];
@@ -347,10 +365,14 @@ shared ({ caller }) actor class Triourism () = this {
                 #Err("No hay un housing asociado al id proporcionado");
             };
             case (?housing) {
+
+                ///////////////////////////////////////////////////// DEBUGIN //////////////////////////////////////////////////////////
                 print("Momento actual en NanoSeg:  " # Int.toText(now()/(60*60*1000000000)));
                 print("horas de anticipacio:       " # Int.toText(housing.minReservationLeadTimeNanoSeg /(60*60*1000000000)));
                 print("Reserva a partir de fecha:  " # Int.toText((now() + housing.minReservationLeadTimeNanoSeg)/(60*60*1000000000)));
                 print("Fecha de ingreso silicitada " # Int.toText(data.checkIn/(60*60*1000000000)));
+                ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
                 if(now() + housing.minReservationLeadTimeNanoSeg > data.checkIn){ 
                     return #Err("Las reservas se solicitan con un minimo de anticipacion de " #
                     Int.toText(housing.minReservationLeadTimeNanoSeg /(60 * 60 * 1_000_000_000)) #
@@ -370,9 +392,34 @@ shared ({ caller }) actor class Triourism () = this {
         }    
     };
 
-    public shared ({ caller }) func confirmReservation(){};
+    func paymentVerification(txHash: Nat):async Bool{
+        // TODO protocolo de verificacion de pago
+        true
+    };
 
+    // public shared ({ caller }) func confirmReservation({reservId: Nat; hostId: HousingId; txHash: Nat}): async {#Ok; #Err: Text}{
+    //     let housing = Map.get<HousingId, Housing>(housings, nhash, hostId);
+    //     switch housing {
+    //         case null { #Err("Incorrect housing ID") };
+    //         case ( ?housing ) {
+    //             let reserv = Map.remove<Nat, Reservation>(housing.reservationRequests, nhash, reservId);
+    //             switch reserv {
+    //                 case null { #Err("Incorrect reservation ID") };
+    //                 case ( ?reserv ) {
+    //                     if(caller != reserv.applicant) {
+    //                         #Err("The caller does not match the reservation requester")
+    //                     };
+    //                     // TODO Verificacion datos de pago a traves del txHhahs
+    //                     if (paymentVerification(txHash)){
 
+    //                     }
 
+    //                 }
+    //             }
+    //         }
+    //     }
+
+        
+    // };
 
 };
