@@ -9,6 +9,7 @@ import Types "types";
 import Int "mo:base/Int";
 import { now } "mo:base/Time";
 import Rand "mo:random/Rand";
+import msg "constants";
 
 ////////////// Debug imports ////////////////
 import { print } "mo:base/Debug";
@@ -36,14 +37,14 @@ shared ({ caller }) actor class Triourism () = this {
             houstingId: HousingId;
             data: Reservation;
             paymentCode: Nat;
-            // msg: Text;   
+            msg: Text;   
         };
         #Err: Text;        
     };
 
     // TODO revisar day, actualemnte es el timestamp de una hora especifica que delimita el comienzo del dia 
     
-
+  
     stable let DEPLOYER = caller;
     let NANO_SEG_PER_HOUR = 60 * 60 * 1_000_000_000;
     let ramdomGenerator = Rand.Rand();
@@ -59,11 +60,11 @@ shared ({ caller }) actor class Triourism () = this {
     stable var lastHousingId = 0;
     
 
-    ///////////////////////////////////// Update functions ////////////////////////////////////////
+  ///////////////////////////////////// Update functions ////////////////////////////////////////
 
     public shared ({ caller }) func signUp(data: Types.SignUpData) : async SignUpResult {
         if(Principal.isAnonymous(caller)){
-            return #Err("User not autenthicated")
+            return #Err(msg.NotUser)
         };
         let user = Map.get(users, phash, caller);
         switch user {
@@ -96,7 +97,7 @@ shared ({ caller }) actor class Triourism () = this {
     public shared ({ caller }) func loadAvatar(avatar: Blob): async {#Ok; #Err: Text} {
         let user = Map.get<Principal, User>(users, phash, caller);
         switch user {
-            case null {#Err("There is no user associated with the caller")};
+            case null {#Err(msg.NotUser)};
             case(?user) {
                 ignore Map.put<Principal, User>(users, phash, caller, {user with avatar = ?avatar});
                 #Ok
@@ -139,8 +140,47 @@ shared ({ caller }) actor class Triourism () = this {
         outPutArray;
     };
 
+    func availableAllDaysResquest(checkin: Int, checkout: Int): Bool{
+        // Consultar caledario del Hosting y reservationRequests
+        true
+    };
 
-    /////////////////////////// Manage admins functions /////////////////////////////////
+    func intToNat(x: Int): Nat{
+        Prim.nat64ToNat(Prim.intToNat64Wrap(x))
+    };
+    /////////// Probar ////////////
+    func insertReservationToCalendar(_calendar: [var CalendaryPart], reserv: Reservation): {#Ok: [var CalendaryPart]; #Err }{
+        let calendar = updateCalendar(_calendar); // Nos aseguramos de que el primer elemnto del array sea el dia actual
+        let checkInDay = intToNat((reserv.checkIn - now())) / 24 * NANO_SEG_PER_HOUR;
+        let daysQty = intToNat(reserv.checkOut - reserv.checkIn) / 24 * NANO_SEG_PER_HOUR;
+        var index = checkInDay;
+        var okBaby = true;
+        while (index < checkInDay + daysQty){
+            if (not calendar[index].available) { 
+                okBaby := false;
+                index += daysQty;
+            };
+            index += 1;
+        };
+        if( okBaby ) {
+            index := checkInDay;
+            while (index < checkInDay + daysQty){
+                let calendaryPart: CalendaryPart = { 
+                    reservation = ?reserv;
+                    day = index * 24 * NANO_SEG_PER_HOUR;
+                    available = false;
+                };
+                calendar[index] := calendaryPart;
+                index += 1;
+            };
+            #Ok(calendar)
+        } else {
+            #Err
+        }
+
+    };
+
+  /////////////////////////// Manage admins functions /////////////////////////////////
 
     public shared ({ caller }) func addAdmin(p: Principal): async  {#Ok; #Err} {
         if(not isAdmin(caller)){ 
@@ -160,10 +200,8 @@ shared ({ caller }) actor class Triourism () = this {
         } 
     };
 
-  /////////////////////////// Admin functions 
-
-    
-  /////////////////////////////// Verification process //////////////////////////////
+  /////////////////////////// Admin functions ////////////////////////////////////////////// 
+  /////////////////////////////// Verification process /////////////////////////////////////
     // TODO actualmente todos los usuarios se inicializan como verificados
 
     func userIsVerificated(u: Principal): Bool {
@@ -174,17 +212,17 @@ shared ({ caller }) actor class Triourism () = this {
         };
     };
 
-  //////////////////////////////// CRUD Housing /////////////////////////////////////
+  //////////////////////////////// CRUD Housing ////////////////////////////////////////////
 
     public shared ({ caller }) func publishHousing(data: HousingDataInit): async PublishResult {     
         let user = Map.get<Principal, User>(users, phash, caller);
         switch user {
             case null {
-                return #Err("Usuario no registrado");
+                return #Err(msg.NotUser);
             };
             case (?user){
                 if(not userIsVerificated(caller)){
-                    return #Err("Usuario no verificado");
+                    return #Err(msg.NotVerifiedUser);
                 };
                 lastHousingId += 1;
                 let newHousing: Housing = {
@@ -248,7 +286,7 @@ shared ({ caller }) actor class Triourism () = this {
             };
             case (?housing) {
                 if(housing.owner != caller){
-                    return #Err("The caller is not the owner of the housing")
+                    return #Err(msg.CallerNotHousingOwner)
                 };
                 let photos = Prim.Array_tabulate<Blob>(
                     housing.photos.size() +1,
@@ -264,11 +302,11 @@ shared ({ caller }) actor class Triourism () = this {
         let housing = Map.get<HousingId, Housing>(housings, nhash, id);
         switch housing {
             case null {
-                #Err("Invalid Housing Id")
+                #Err(msg.NotHosting)
             };
             case (?housing) {
                 if(housing.owner != caller){
-                    return #Err("The caller is not the owner of the housing")
+                    return #Err(msg.UnauthorizedCaller)
                 };
                 ignore Map.put<HousingId, Housing>(housings, nhash, id, {housing with thumbnail});
                 #Ok
@@ -280,10 +318,10 @@ shared ({ caller }) actor class Triourism () = this {
         let housing = Map.get(housings, nhash, id);
         switch housing {
             case null {
-                return #Err("Error Housing ID");
+                return #Err(msg.NotHosting);
             };
             case (?housing) {
-                if(housing.owner != caller){ return #Err("Unauthorized caller") };
+                if(housing.owner != caller){ return #Err(msg.UnauthorizedCaller) };
                 ignore Map.put<HousingId, Housing>(housings, nhash, id, {housing with prices});
                 return #Ok
             };
@@ -294,17 +332,17 @@ shared ({ caller }) actor class Triourism () = this {
         let housing = Map.get<HousingId, Housing>(housings, nhash, id);
         switch housing {
             case null {
-                return #Err("No hay un housing asociado al ID porporcionado");
+                return #Err(msg.NotHosting);
             };
             case (?housing) {
                 if(housing.owner != caller){
-                    return #Err("El caller no es dueño del housing");
+                    return #Err(msg.CallerNotHousingOwner);
                 };
                 ignore Map.put<HousingId, Housing>(
                     housings, 
                     nhash, 
                     id, 
-                    {housing with minReservationLeadTimeNanoSeg = hours * 60 * 60 * 1_000_000_000});
+                    {housing with minReservationLeadTimeNanoSeg = hours * NANO_SEG_PER_HOUR});
                 #Ok;
             }
 
@@ -312,11 +350,11 @@ shared ({ caller }) actor class Triourism () = this {
     };
 
 
-  ////////////////////////////////// Getters ///////////////////////////////////////////
+  ////////////////////////////////// Getters ///////////////////////////////////////////////
 
     public query func getHousingPaginate(page: Nat): async ResultHousingPaginate {
         if(Map.size(housings) < page * 10){
-            return #Err("Pagination index out of range")
+            return #Err(msg.PaginationOutOfRange)
         };
         let values = Map.toArray<HousingId, Housing>(housings);
         let bufferHousingPreview = Buffer.fromArray<Housing>([]);
@@ -334,7 +372,7 @@ shared ({ caller }) actor class Triourism () = this {
     public query func getHousingById({housingId: HousingId;  photoIndex: Nat}): async {#Ok: HousingResponse; #Err: Text} {
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         return switch housing {
-            case null { #Err("Error Housing ID")};
+            case null { #Err(msg.NotHosting)};
             case (?housing) {
                 if(photoIndex == 0){
                     let housingResponse: HousingResponse = #Start({
@@ -356,38 +394,45 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-  ///////////////////////////////// Reservations /////////////////////////////////////////
+  ///////////////////////////////// Reservations ///////////////////////////////////////////
 
-    public shared ({ caller }) func requestReservation({id: HousingId; data: Reservation}):async ReservationResult {
-        let housing = Map.get<HousingId, Housing>(housings, nhash, id);
+    public shared ({ caller }) func requestReservation({hostId: HousingId; data: Reservation}):async ReservationResult {
+        let housing = Map.get<HousingId, Housing>(housings, nhash, hostId);
         switch housing {
             case null {
-                #Err("No hay un housing asociado al id proporcionado");
+                #Err(msg.NotHosting);
             };
             case (?housing) {
+                /////// housing calendar update / housing Map update //////
+                let calendar = updateCalendar(housing.calendar);
+                ignore Map.put<HousingId, Housing>(housings, nhash, hostId, {housing with calendar});
 
                 ///////////////////////////////////////////////////// DEBUGIN //////////////////////////////////////////////////////////
-                print("Momento actual en NanoSeg:  " # Int.toText(now()/(60*60*1000000000)));
-                print("horas de anticipacio:       " # Int.toText(housing.minReservationLeadTimeNanoSeg /(60*60*1000000000)));
-                print("Reserva a partir de fecha:  " # Int.toText((now() + housing.minReservationLeadTimeNanoSeg)/(60*60*1000000000)));
-                print("Fecha de ingreso silicitada " # Int.toText(data.checkIn/(60*60*1000000000)));
+                print("Momento actual en NanoSeg:  " # Int.toText(now()));
+                print("horas de anticipacio:       " # Int.toText(housing.minReservationLeadTimeNanoSeg ));
+                print("Reserva a partir de fecha:  " # Int.toText((now() + housing.minReservationLeadTimeNanoSeg)));
+                print("Fecha de ingreso silicitada " # Int.toText(data.checkIn));
                 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
                 if(now() + housing.minReservationLeadTimeNanoSeg > data.checkIn){ 
-                    return #Err("Las reservas se solicitan con un minimo de anticipacion de " #
-                    Int.toText(housing.minReservationLeadTimeNanoSeg /(60 * 60 * 1_000_000_000)) #
-                    " horas");
+                    return #Err("Reservations are requested at least " #
+                    Int.toText(housing.minReservationLeadTimeNanoSeg /(NANO_SEG_PER_HOUR)) #
+                    " hours in advance.");
                 };
-                let reservationId = await ramdomGenerator.randRange(1_000_000_000, 9_999_999_999);
-                let responseReservation = {
-                    houstingId = id;
-                    reservationId;
-                    data;
-                    paymentCode = await ramdomGenerator.randRange(1_000_000_000_000_000_000_000, 9_999_999_999_999_999_999_999)
-                };
-                
-                ignore Map.put<Nat, Reservation>(housing.reservationRequests, nhash, reservationId, data );
-                #Ok( responseReservation )
+                if(availableAllDaysResquest(data.checkIn, data.checkOut)){
+                    let reservationId = await ramdomGenerator.randRange(1_000_000_000, 9_999_999_999);
+                    let responseReservation = {
+                        houstingId = hostId;
+                        reservationId;
+                        data;
+                        msg = msg.PayRequest;
+                        paymentCode = await ramdomGenerator.randRange(1_000_000_000_000_000_000_000, 9_999_999_999_999_999_999_999)
+                    };
+                    ignore Map.put<Nat, Reservation>(housing.reservationRequests, nhash, reservationId, data );
+                    #Ok( responseReservation )
+                } else {
+                    #Err( msg.NotAvalableAllDays);
+                }
             };
         }    
     };
@@ -397,29 +442,43 @@ shared ({ caller }) actor class Triourism () = this {
         true
     };
 
-    // public shared ({ caller }) func confirmReservation({reservId: Nat; hostId: HousingId; txHash: Nat}): async {#Ok; #Err: Text}{
-    //     let housing = Map.get<HousingId, Housing>(housings, nhash, hostId);
-    //     switch housing {
-    //         case null { #Err("Incorrect housing ID") };
-    //         case ( ?housing ) {
-    //             let reserv = Map.remove<Nat, Reservation>(housing.reservationRequests, nhash, reservId);
-    //             switch reserv {
-    //                 case null { #Err("Incorrect reservation ID") };
-    //                 case ( ?reserv ) {
-    //                     if(caller != reserv.applicant) {
-    //                         #Err("The caller does not match the reservation requester")
-    //                     };
-    //                     // TODO Verificacion datos de pago a traves del txHhahs
-    //                     if (paymentVerification(txHash)){
+    public shared ({ caller }) func confirmReservation({reservId: Nat; hostId: HousingId; txHash: Nat}): async {#Ok; #Err: Text}{
+        let housing = Map.get<HousingId, Housing>(housings, nhash, hostId);
+        switch housing {
+            case null { #Err(msg.NotHosting) };
+            case ( ?housing ) {
+                let updatedCalendar = updateCalendar(housing.calendar);
+                ignore Map.put<HousingId, Housing>(housings, nhash, hostId, {housing with updatedCalendar}); 
+                let reserv = Map.remove<Nat, Reservation>(housing.reservationRequests, nhash, reservId);
+                switch reserv {
+                    case null { #Err(msg.NotReservation) };
+                    case ( ?reserv ) {
+                        if(caller != reserv.applicant) {
+                            return #Err(msg.CallerIsNotrequester)
+                        };
+                        // TODO Verificacion datos de pago a traves del txHhahs
+                        if (await paymentVerification(txHash)){
+                            let calendar = insertReservationToCalendar(updatedCalendar, reserv);
+                            switch calendar {
+                                case (#Ok(calendar)) {
 
-    //                     }
+                                    ignore Map.put<HousingId, Housing>(housings, nhash, hostId, {housing with calendar});
+                                    return #Ok
+                                };
+                                case (_) { 
+                                    ignore Map.put<Nat, Reservation>(housing.reservationRequests, nhash, reservId, reserv);
+                                    return #Err("Error") 
+                                }
+                            }
+                        };
+                        #Err("Incorrect payment verification")
 
-    //                 }
-    //             }
-    //         }
-    //     }
+                    }
+                }
+            }
+        }
 
         
-    // };
+    };
 
 };
