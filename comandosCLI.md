@@ -2,23 +2,27 @@
 dfx deploy backend
 
 ```
-registro de usuario sin foto:
+registro de usuario huesped general:
 
 ```
 dfx canister call backend signUp '(record { 
-    name="Usuario de Prueba"; 
-    email=opt "usuario_prueba@gmail.com"; 
-    avatar= null}
+        name="Juan";
+        lastName="Perez";
+        phone= null;
+        email="juanperez@gmail.com"; 
+    }
 )'
 ```
 
-registro de usuario con foto:
+registro de usuario tipo Host
 
 ```
-dfx canister call backend signUp '(record { 
-    name="Usuario de Prueba"; 
-    email=opt "usuario_prueba2@gmail.com"; 
-    avatar= opt blob "11/44/67/87/45/34/09/87/56"}
+dfx canister call backend signUpAsHost '(record { 
+        name="Gerardo";
+        lastName="Anchorena";
+        phone= opt 54221548797;
+        email="gerardonchorena@gmail.com";  
+    }
 )'
 ```
 
@@ -26,8 +30,9 @@ publicacion de hosting
 
 ```
 dfx canister call backend publishHousing '(record {
-    minReservationLeadTimeHours = 24;
+    minReservationLeadTimeNanoSec = 86400000000000;
     address = "San Martin 555";
+    amenities = vec{"Jacuzzi"; "Piscina"; "Gimnasio"};
     prices = vec {
         variant {PerNight = 50};
         variant {PerWeek = 550}

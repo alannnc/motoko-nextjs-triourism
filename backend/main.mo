@@ -320,20 +320,20 @@ shared ({ caller }) actor class Triourism () = this {
                             ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId, newHousing);
                             let hosingIdListUpdate = Prim.Array_tabulate<Nat>(
                                 hosingIdList.size() + 1,
-                                func x = if(x == 0) { lastHousingId } else {hosingIdList[x + 1]}
+                                func x = if(x == 0) { lastHousingId } else {hosingIdList[x - 1]}
                             );
                             let updateKinds = Prim.Array_tabulate<Types.UserKind>(
                                 user.kinds.size(),
                                 func x = if(x == index) {#Host(hosingIdListUpdate)} else {user.kinds[index]}
                             );
-                            ignore Map.put<Principal,User>(users, phash, caller, {user with userKind = updateKinds});
+                            ignore Map.put<Principal,User>(users, phash, caller, {user with kinds = updateKinds});
                             return #Ok(newHousing.id)
                         };
                         case _ {};
                     };
                     index += 1;
                 };
-                return #Err(msg.NotUser)
+                return #Err(msg.NotHost)
             }
         }
 
@@ -438,7 +438,11 @@ shared ({ caller }) actor class Triourism () = this {
                     let housingResponse: HousingResponse = #Start({
                         housing with
                         calendar = freezeCalendar(housing.calendar);
-                        photo = housing.photos[photoIndex];
+                        photo = if(housing.photos.size() > 0){
+                            housing.photos[0]
+                            } else {
+                                Blob.fromArray([0])
+                            };
                         hasNextPhoto = photoIndex < housing.photos.size()
                     });
                     #Ok(housingResponse);
