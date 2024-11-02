@@ -28,7 +28,7 @@ shared ({ caller }) actor class Triourism () = this {
     type HousingPreview = Types.HousingPreview;
 
     type UpdateResult = Types.UpdateResult;
-    type ResultHousingPaginate = {#Ok: {array: [HousingPreview]; next: Bool}; #Err: Text};
+    type ResultHousingPaginate = {#Ok: {array: [HousingPreview]; hasNext: Bool}; #Err: Text};
     type PublishResult = {#Ok: HousingId; #Err: Text};
 
     type ReservationResult = {
@@ -62,26 +62,37 @@ shared ({ caller }) actor class Triourism () = this {
 
   ///////////////////////////////////// Update functions ////////////////////////////////////////
 
-    public shared ({ caller }) func signUp(data: Types.SignUpData) : async SignUpResult {
-        if(Principal.isAnonymous(caller)){
+    private func _safeSignUp(p: Principal, data: Types.SignUpData, kind: UserKind): SignUpResult {
+        if(Principal.isAnonymous(p)){
             return #Err(msg.NotUser)
         };
-        let user = Map.get(users, phash, caller);
+        let user = Map.get(users, phash, p);
         switch user {
             case (?User) { #Err("User already exists") };
             case null {
                 let newUser: User = {
-                    userKind: [UserKind] = [];
+                    kinds: [UserKind] = [kind];
                     name = data.name;
+                    lastName = data.lastName;
+                    phone = data.phone;
                     email = data.email;
                     verified = true;
                     score = 0;
-                    avatar = data.avatar;
+                    // avatar = data.avatar;
                 };
-                ignore Map.put(users, phash, caller, newUser);
+                ignore Map.put(users, phash, p, newUser);
                 #Ok(newUser);
             };
         };
+    };
+
+    public shared ({ caller }) func signUp(data: Types.SignUpData) : async SignUpResult {
+        _safeSignUp(caller, data, #Initial)
+    };
+
+    public shared ({ caller }) func signUpAsHost(data: Types.SignUpData) : async SignUpResult {
+        _safeSignUp(caller, data, #Host([]));
+
     };
 
     public shared query ({ caller }) func logIn(): async {#Ok: User; #Err} {
@@ -94,16 +105,28 @@ shared ({ caller }) actor class Triourism () = this {
 
     //////////////////////////////// CRUD Data User ///////////////////////////////////
 
-    public shared ({ caller }) func loadAvatar(avatar: Blob): async {#Ok; #Err: Text} {
+    // public shared ({ caller }) func loadAvatar(avatar: Blob): async {#Ok; #Err: Text} {
+    //     let user = Map.get<Principal, User>(users, phash, caller);
+    //     switch user {
+    //         case null {#Err(msg.NotUser)};
+    //         case(?user) {
+    //             ignore Map.put<Principal, User>(users, phash, caller, {user with avatar = ?avatar});
+    //             #Ok
+    //         }
+    //     }
+    // };
+
+    public shared ({ caller }) func editProfile(data: Types.SignUpData): async {#Ok; #Err}{
         let user = Map.get<Principal, User>(users, phash, caller);
         switch user {
-            case null {#Err(msg.NotUser)};
-            case(?user) {
-                ignore Map.put<Principal, User>(users, phash, caller, {user with avatar = ?avatar});
+            case null { #Err };
+            case (?user){
+                ignore Map.put<Principal, User>(users, phash, caller, { user with data});
                 #Ok
-            }
-        }
+            };
+        };
     };
+
     // TODO
     ///////////////////////////////////////////////////////////////////////////////////
 
@@ -214,68 +237,106 @@ shared ({ caller }) actor class Triourism () = this {
 
   //////////////////////////////// CRUD Housing ////////////////////////////////////////////
 
-    public shared ({ caller }) func publishHousing(data: HousingDataInit): async PublishResult {     
+    // public shared ({ caller }) func publishHousingOld(data: HousingDataInit): async PublishResult {     
+    //     let user = Map.get<Principal, User>(users, phash, caller);
+    //     switch user {
+    //         case null {
+    //             return #Err(msg.NotUser);
+    //         };
+    //         case (?user){
+    //             if(not userIsVerificated(caller)){
+    //                 return #Err(msg.NotVerifiedUser);
+    //             };
+    //             lastHousingId += 1;
+    //             let newHousing: Housing = { data with
+    //                 reservationRequests = Map.new<Nat, Reservation>();
+    //                 owner = caller;
+    //                 id = lastHousingId;
+    //                 calendar: [var CalendaryPart] = initCalendary();
+    //                 photos: [Blob] = [];
+    //                 thumbnail: Blob = "";
+    //             };
+    //             var updateHousingArray: [HousingId] = [];
+    //             var notPrevious = true;
+    //             var position = 0;
+    //             var i = 0;
+    //             while(i < user.userKind.size()){
+    //                 switch (user.userKind[i]){
+    //                     case(#Host(housingIdArray)){
+    //                         notPrevious := false;
+    //                         position := i;
+    //                         updateHousingArray := Prim.Array_tabulate<HousingId>( 
+    //                             housingIdArray.size() + 1,
+    //                             func x {
+    //                                 if(x != housingIdArray.size()){
+    //                                    housingIdArray[x];
+    //                                 }
+    //                                 else {newHousing.id}
+    //                             }
+    //                         )
+    //                     };
+    //                     case(_){};
+    //                 };
+    //                 i += 1;
+    //             };
+    //             if(notPrevious){ updateHousingArray := [newHousing.id] };
+    //             let updateKinds = Prim.Array_tabulate<UserKind>(
+    //                 user.userKind.size() + (if(notPrevious){ 1 } else { 0 }),
+    //                 func i { if(i == position) {
+    //                         #Host(updateHousingArray)
+    //                     }
+    //                     else {
+    //                         user.userKind[i]
+    //                     }
+    //                 }
+    //             );
+    //             ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId, newHousing);
+    //             ignore Map.put<Principal,User>(users, phash, caller, {user with userKind = updateKinds});
+    //             return #Ok(newHousing.id)
+    //         }
+    //     };
+    // };
+
+    public shared ({ caller }) func publishHousing(data: HousingDataInit): async PublishResult {
         let user = Map.get<Principal, User>(users, phash, caller);
         switch user {
             case null {
                 return #Err(msg.NotUser);
             };
-            case (?user){
-                if(not userIsVerificated(caller)){
-                    return #Err(msg.NotVerifiedUser);
-                };
-                lastHousingId += 1;
-                let newHousing: Housing = {
-                    reservationRequests = Map.new<Nat, Reservation>();
-                    owner = caller;
-                    minReservationLeadTimeNanoSeg = data.minReservationLeadTimeHours * NANO_SEG_PER_HOUR;
-                    id = lastHousingId;
-                    calendar: [var CalendaryPart] = initCalendary();
-                    photos: [Blob] = [];
-                    thumbnail: Blob = "";
-                    address = data.address;
-                    prices = data.prices;
-                    kind = data.kind;
-                };
-                var updateHousingArray: [HousingId] = [];
-                var notPrevious = true;
-                var position = 0;
-                var i = 0;
-                while(i < user.userKind.size()){
-                    switch (user.userKind[i]){
-                        case(#Host(housingIdArray)){
-                            notPrevious := false;
-                            position := i;
-                            updateHousingArray := Prim.Array_tabulate<HousingId>( 
-                                housingIdArray.size() + 1,
-                                func x {
-                                    if(x != housingIdArray.size()){
-                                       housingIdArray[x];
-                                    }
-                                    else {newHousing.id}
-                                }
-                            )
+            case ( ?user ){
+                var index = 0;
+                for (kind in user.kinds.vals()){
+                    switch kind {
+                        case (#Host(hosingIdList)){
+                            lastHousingId += 1;
+                            let newHousing: Housing = { data with
+                                reservationRequests = Map.new<Nat, Reservation>();
+                                owner = caller;
+                                id = lastHousingId;
+                                calendar: [var CalendaryPart] = initCalendary();
+                                photos: [Blob] = [];
+                                thumbnail: Blob = "";
+                            };
+                            ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId, newHousing);
+                            let hosingIdListUpdate = Prim.Array_tabulate<Nat>(
+                                hosingIdList.size() + 1,
+                                func x = if(x == 0) { lastHousingId } else {hosingIdList[x + 1]}
+                            );
+                            let updateKinds = Prim.Array_tabulate<Types.UserKind>(
+                                user.kinds.size(),
+                                func x = if(x == index) {#Host(hosingIdListUpdate)} else {user.kinds[index]}
+                            );
+                            ignore Map.put<Principal,User>(users, phash, caller, {user with userKind = updateKinds});
+                            return #Ok(newHousing.id)
                         };
-                        case(_){};
+                        case _ {};
                     };
-                    i += 1;
+                    index += 1;
                 };
-                if(notPrevious){ updateHousingArray := [newHousing.id] };
-                let updateKinds = Prim.Array_tabulate<UserKind>(
-                    user.userKind.size() + (if(notPrevious){ 1 } else { 0 }),
-                    func i { if(i == position) {
-                            #Host(updateHousingArray)
-                        }
-                        else {
-                            user.userKind[i]
-                        }
-                    }
-                );
-                ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId, newHousing);
-                ignore Map.put<Principal,User>(users, phash, caller, {user with userKind = updateKinds});
-                return #Ok(newHousing.id)
+                return #Err(msg.NotUser)
             }
-        };
+        }
+
     };
 
     public shared ({ caller }) func addPhotoToHousing({id: HousingId; photo: Blob}): async {#Ok; #Err: Text} {
@@ -349,7 +410,6 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-
   ////////////////////////////////// Getters ///////////////////////////////////////////////
 
     public query func getHousingPaginate(page: Nat): async ResultHousingPaginate {
@@ -365,7 +425,7 @@ shared ({ caller }) actor class Triourism () = this {
         };
         #Ok{
             array = Buffer.toArray<Housing>(bufferHousingPreview);
-            next = ((page + 1) * 10 < values.size())
+            hasNext = ((page + 1) * 10 < values.size())
         }
     };
 
@@ -394,6 +454,38 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
+    public shared ({ caller }) func getMyHousingsPaginate({page: Nat}): async ResultHousingPaginate {
+        let user = Map.get<Principal, User>(users, phash, caller);
+        switch user {
+            case null { #Err("There is no user associated with the caller")};
+            case ( ?user ) {
+                for( k in user.kinds.vals()){
+                    switch k {
+                        case (#Host(hostIds)) {
+                            let bufferHousingreview = Buffer.fromArray<HousingPreview>([]);
+                            var index = page * 10;
+                            while(index < hostIds.size() and index < 10 * (page + 1)){
+                                let housing = Map.get<Nat, Housing>(housings, nhash, hostIds[index]);
+                                switch housing {
+                                    case null{ };
+                                    case ( ?housing ) {
+                                        let prev: HousingPreview = housing;
+                                        bufferHousingreview.add(prev);
+                                    }
+                                };          
+                                index += 1;
+                            };
+                            return #Ok({array = Buffer.toArray<HousingPreview>(bufferHousingreview); hasNext = hostIds.size() > 10 * (page +1)})
+                        };
+                        case _ {};
+                    }
+                };
+                #Err("The user is not a hosting type user")
+
+            }
+        }
+    };
+
   ///////////////////////////////// Reservations ///////////////////////////////////////////
 
     public shared ({ caller }) func requestReservation({hostId: HousingId; data: Reservation}):async ReservationResult {
@@ -409,14 +501,14 @@ shared ({ caller }) actor class Triourism () = this {
 
                 ///////////////////////////////////////////////////// DEBUGIN //////////////////////////////////////////////////////////
                 print("Momento actual en NanoSeg:  " # Int.toText(now()));
-                print("horas de anticipacio:       " # Int.toText(housing.minReservationLeadTimeNanoSeg ));
-                print("Reserva a partir de fecha:  " # Int.toText((now() + housing.minReservationLeadTimeNanoSeg)));
+                print("horas de anticipacio:       " # Int.toText(housing.minReservationLeadTimeNanoSec ));
+                print("Reserva a partir de fecha:  " # Int.toText((now() + housing.minReservationLeadTimeNanoSec)));
                 print("Fecha de ingreso silicitada " # Int.toText(data.checkIn));
                 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-                if(now() + housing.minReservationLeadTimeNanoSeg > data.checkIn){ 
+                if(now() + housing.minReservationLeadTimeNanoSec > data.checkIn){ 
                     return #Err("Reservations are requested at least " #
-                    Int.toText(housing.minReservationLeadTimeNanoSeg /(NANO_SEG_PER_HOUR)) #
+                    Int.toText(housing.minReservationLeadTimeNanoSec /(NANO_SEG_PER_HOUR)) #
                     " hours in advance.");
                 };
                 if(availableAllDaysResquest(data.checkIn, data.checkOut)){

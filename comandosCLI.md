@@ -26,8 +26,8 @@ publicacion de hosting
 
 ```
 dfx canister call backend publishHousing '(record {
+    minReservationLeadTimeHours = 24;
     address = "San Martin 555";
-    minReservationLeadTime = 24;
     prices = vec {
         variant {PerNight = 50};
         variant {PerWeek = 550}

@@ -10,5 +10,6 @@ module {
     public let NotVerifiedUser = "The user is not verified";
     public let NotUser = "Unregistered user";
     public let CallerIsNotrequester = "The caller does not match the reservation requester";
+    public let NotHost = "Te caller in not Host User profile";
 
 };

@@ -4,19 +4,18 @@ module {
 
     public type SignUpData = {
         name: Text;
-        email: ?Text;
-        avatar: ?Blob;
+        lastName: Text;
+        phone: ?Nat;
+        email: Text;
+        //avatar: ?Blob;
     };
 
-    public type User = {
+    public type User = SignUpData and {
         // id: Nat;
-        userKind: [UserKind];   //Un user Host puede ser ademas un User 
-        name: Text;
-        email: ?Text;
+        kinds: [UserKind];
+        // userKind: UserKind;
         verified: Bool;
-        score: Nat;
-        avatar: ?Blob;
-        
+        score: Nat;    
     };
 
     public type UserKind = {
@@ -26,6 +25,7 @@ module {
     };
 
     public type SignUpResult = { #Ok : User; #Err : Text };
+    
     // type GetProfileError = {
     //     #userNotAuthenticated;
     //     #profileNotFound;
@@ -39,25 +39,21 @@ module {
   ///////////////////////////////// Housing /////////////////////////////////
     
     public type HousingDataInit = {
-        // owner: Principal;
-        minReservationLeadTimeHours: Int; //valor en horas de anticipación para efectuar una reserva
+        minReservationLeadTimeNanoSec: Int; //valor en nanoSeg de anticipación para efectuar una reserva
         address: Text;
         prices: [Price];
         kind: HousingKind;
+        amenities: [Text];
     };
 
 
-    public type Housing = {
+    public type Housing = HousingDataInit and {
         id: Nat; // Example L234324
         owner: Principal;
         calendar: [var CalendaryPart];
-        reservationRequests: Map.Map<Nat, Reservation>; 
-        minReservationLeadTimeNanoSeg: Int; // valor en nanosegundos de anticipacion para efectuar una reserva
-        address: Text;
+        reservationRequests: Map.Map<Nat, Reservation>;
         photos: [Blob];
         thumbnail: Blob; // Se recomienda la foto principal en tamaño reducido
-        prices: [Price];
-        kind: HousingKind;
     };
 
     public type HousingResponse = {
