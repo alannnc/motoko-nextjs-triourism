@@ -35,7 +35,7 @@ shared ({ caller }) actor class Triourism () = this {
     type ReservationResult = {
         #Ok: {
             reservationId: Nat;
-            houstingId: HousingId;
+            housingId: HousingId;
             data: Reservation;
             paymentCode: Nat;
             msg: Text;   
@@ -165,7 +165,7 @@ shared ({ caller }) actor class Triourism () = this {
     };
 
     func availableAllDaysResquest(checkin: Int, checkout: Int): Bool{
-        // Consultar caledario del Hosting y reservationRequests
+        // TODO Consultar caledario del Hosting y reservationRequests
         true
     };
 
@@ -432,6 +432,20 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
+    public shared ({ caller }) func updateHosting({id: Nat; data: HousingDataInit}): async {#Ok; #Err: Text}{
+        let housing = Map.get<HousingId, Housing>(housings, nhash, id);
+        switch housing {
+            case null { #Err(msg.NotHosting)};
+            case ( ?housing ) {
+                if(caller != housing.owner) {
+                    return #Err(msg.CallerNotHousingOwner);
+                };
+                ignore Map.put<HousingId, Housing>(housings, nhash, id, {housing with data});
+                #Ok
+            }
+        }
+    };
+
   ////////////////////////////////// Getters ///////////////////////////////////////////////
 
     public query func getHousingPaginate(page: Nat): async ResultHousingPaginate {
@@ -532,8 +546,8 @@ shared ({ caller }) actor class Triourism () = this {
 
   ///////////////////////////////// Reservations ///////////////////////////////////////////
 
-    public shared ({ caller }) func requestReservation({hostId: HousingId; data: ReservationDataInput}):async ReservationResult {
-        let housing = Map.get<HousingId, Housing>(housings, nhash, hostId);
+    public shared ({ caller }) func requestReservation({housingId: HousingId; data: ReservationDataInput}):async ReservationResult {
+        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         switch housing {
             case null {
                 #Err(msg.NotHosting);
@@ -542,7 +556,7 @@ shared ({ caller }) actor class Triourism () = this {
                 print("housing");
                 /////// housing calendar update / housing Map update //////
                 let calendar = updateCalendar(housing.calendar);
-                ignore Map.put<HousingId, Housing>(housings, nhash, hostId, {housing with calendar});
+                ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with calendar});
 
                 ///////////////////////////////////////////////////// DEBUGIN //////////////////////////////////////////////////////////
                 print("Momento actual en NanoSeg:  " # Int.toText(now()));
@@ -560,7 +574,7 @@ shared ({ caller }) actor class Triourism () = this {
                     let reservationId = await ramdomGenerator.randRange(1_000_000_000, 9_999_999_999);
                     let reservation = {data with applicant = caller};
                     let responseReservation = {
-                        houstingId = hostId;
+                        housingId;
                         reservationId;
                         data = reservation;
                         msg = msg.PayRequest;

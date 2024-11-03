@@ -35,6 +35,8 @@ dfx canister call backend publishHousing '(record {
     description= "Vista al mar, 56 Mts2, silencioso";
     maxCapacity= 6;
     amenities = vec{"Jacuzzi"; "Piscina"; "Gimnasio"};
+    rules = vec {"No fumar"};
+    
     prices = vec {
         variant {PerNight = 90};
         variant {PerWeek = 550};
@@ -82,12 +84,11 @@ Solicitud de reserva
 
 ```
 dfx canister call backend requestReservation '(record {
-    id = 1 : nat;
+    hostId = 1 : nat;
     data = record {
-      applicant = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
-      checkIn = 1_729_636_239_000_000_000 : int;
-      guest = "Ariel";
-      checkOut = 1_729_722_639_000_000_000 : int;
+      checkIn = 1731198892000000000 : int;
+      guest = "Leonardo";
+      checkOut = 1733790892000000000 : int;
     };
 })'
 ```

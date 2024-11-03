@@ -44,7 +44,8 @@ module {
         prices: [Price];
         kind: HousingKind;
         maxCapacity: Nat;
-        description: Text; 
+        description: Text;
+        rules: [Text];
         amenities: [Text];
     };
 
@@ -71,6 +72,7 @@ module {
             kind: HousingKind;
             maxCapacity: Nat;
             description: Text;
+            rules: [Text];
             amenities: [Text]; 
             hasNextPhoto: Bool;
             reviews: [Text];
