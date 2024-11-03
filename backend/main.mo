@@ -354,6 +354,7 @@ shared ({ caller }) actor class Triourism () = this {
                     func i = if(i < housing.photos.size()) {housing.photos[i]} else {photo}
                 );
                 ignore Map.put<HousingId, Housing>(housings, nhash, id, {housing with photos});
+                print(debug_show({housing with photos}));
                 #Ok
             }
         }
@@ -443,15 +444,15 @@ shared ({ caller }) actor class Triourism () = this {
                             } else {
                                 Blob.fromArray([0])
                             };
-                        hasNextPhoto = photoIndex < housing.photos.size()
+                        hasNextPhoto = (housing.photos.size() > photoIndex + 1)
                     });
                     #Ok(housingResponse);
                 } else {
                     let housingResponse: HousingResponse = #OnlyPhoto({
-                        housing with
                         photo = housing.photos[photoIndex];
-                        hasNextPhoto = photoIndex < housing.photos.size()
+                        hasNextPhoto = (housing.photos.size() > photoIndex + 1)
                     });
+                    print(debug_show(housing.photos));
                     #Ok(housingResponse)
                 }
             };

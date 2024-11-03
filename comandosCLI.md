@@ -32,10 +32,17 @@ publicacion de hosting
 dfx canister call backend publishHousing '(record {
     minReservationLeadTimeNanoSec = 86400000000000;
     address = "San Martin 555";
+    description= "Vista al mar, 56 Mts2, silencioso";
+    maxCapacity= 6;
     amenities = vec{"Jacuzzi"; "Piscina"; "Gimnasio"};
     prices = vec {
-        variant {PerNight = 50};
-        variant {PerWeek = 550}
+        variant {PerNight = 90};
+        variant {PerWeek = 550};
+        variant {CustomPeriod = vec {
+                record {dais = 15; price = 1000};
+                record {dais = 30; price = 1900};
+            }
+        }
     }; 
     kind = variant {House}}
 )'

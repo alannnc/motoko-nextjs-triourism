@@ -43,6 +43,8 @@ module {
         address: Text;
         prices: [Price];
         kind: HousingKind;
+        maxCapacity: Nat;
+        description: Text; 
         amenities: [Text];
     };
 
@@ -64,6 +66,9 @@ module {
             thumbnail: Blob;
             prices: [Price];
             kind: HousingKind;
+            maxCapacity: Nat;
+            description: Text;
+            amenities: [Text]; 
             hasNextPhoto: Bool;
         };
         #OnlyPhoto :{
@@ -88,7 +93,7 @@ module {
 
     public type HousingKind = {
         #House;
-        #Hotel_room;
+        #Hotel_room: Text; //Ejemplo #Hotel_room("Single Room")
         #RoomWithSharedSpaces: [Rules]; //Hostels/Pensiones
     };
 
