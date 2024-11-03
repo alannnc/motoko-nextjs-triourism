@@ -20,6 +20,7 @@ shared ({ caller }) actor class Triourism () = this {
     type UserKind = Types.UserKind;
     type SignUpResult = Types.SignUpResult;
     type CalendaryPart = Types.CalendaryPart;
+    type ReservationDataInput = Types.ReservationDataInput;
     type Reservation = Types.Reservation;
     type HousingId = Types.HousingId;
     type HousingDataInit = Types.HousingDataInit;
@@ -149,13 +150,13 @@ shared ({ caller }) actor class Triourism () = this {
     func updateCalendar(c: [var CalendaryPart]): [var CalendaryPart] {
         var indexDay = 0;
         var displace = 0;
-        while(now() + NANO_SEG_PER_HOUR * 24 > c[indexDay].day){
+        while(indexDay < c.size() and now() + NANO_SEG_PER_HOUR * 24 > c[indexDay].day){
             displace += 1;
             indexDay += 1;
         };
         let outPutArray = c;
         var index = 0;
-        while(index + displace <= c.size()){
+        while(index + displace < c.size()){
             outPutArray[index] := c[index + displace];
             outPutArray[index + displace] := {day =  0; available = true; reservation = null};
             index += 1;
@@ -307,7 +308,7 @@ shared ({ caller }) actor class Triourism () = this {
                 var index = 0;
                 for (kind in user.kinds.vals()){
                     switch kind {
-                        case (#Host(hosingIdList)){
+                        case (#Host(housingIdList)){
                             lastHousingId += 1;
                             let newHousing: Housing = { data with
                                 reservationRequests = Map.new<Nat, Reservation>();
@@ -320,13 +321,13 @@ shared ({ caller }) actor class Triourism () = this {
                                 reviews: [Text] = [];
                             };
                             ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId, newHousing);
-                            let hosingIdListUpdate = Prim.Array_tabulate<Nat>(
-                                hosingIdList.size() + 1,
-                                func x = if(x == 0) { lastHousingId } else {hosingIdList[x - 1]}
+                            let housingIdListUpdate = Prim.Array_tabulate<Nat>(
+                                housingIdList.size() + 1,
+                                func x = if(x == 0) { lastHousingId } else {housingIdList[x - 1]}
                             );
                             let updateKinds = Prim.Array_tabulate<Types.UserKind>(
                                 user.kinds.size(),
-                                func x = if(x == index) {#Host(hosingIdListUpdate)} else {user.kinds[index]}
+                                func x = if(x == index) {#Host(housingIdListUpdate)} else {user.kinds[index]}
                             );
                             ignore Map.put<Principal,User>(users, phash, caller, {user with kinds = updateKinds});
                             return #Ok(newHousing.id)
@@ -453,7 +454,7 @@ shared ({ caller }) actor class Triourism () = this {
         return switch housing {
             case null { #Err(msg.NotHosting)};
             case (?housing) {
-                if(not housing.active) {
+                if(not housing.active and housing.owner != caller) {
                     return #Err(msg.InactiveHousing)
                 };
                 if(photoIndex == 0){
@@ -512,15 +513,29 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
+    public shared query ({ caller }) func getReservations({housingId: Nat}): async {#Ok: [(Nat, Reservation)]; #Err: Text}{
+        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
+        switch housing {
+            case null {#Err(msg.NotHosting)};
+            case ( ?housing ) {
+                if(housing.owner != caller ){
+                    return #Err(msg.CallerNotHousingOwner);
+                };
+                #Ok(Map.toArray<Nat, Reservation>(housing.reservationRequests))
+            }
+        }
+    };
+
   ///////////////////////////////// Reservations ///////////////////////////////////////////
 
-    public shared ({ caller }) func requestReservation({hostId: HousingId; data: Reservation}):async ReservationResult {
+    public shared ({ caller }) func requestReservation({hostId: HousingId; data: ReservationDataInput}):async ReservationResult {
         let housing = Map.get<HousingId, Housing>(housings, nhash, hostId);
         switch housing {
             case null {
                 #Err(msg.NotHosting);
             };
             case (?housing) {
+                print("housing");
                 /////// housing calendar update / housing Map update //////
                 let calendar = updateCalendar(housing.calendar);
                 ignore Map.put<HousingId, Housing>(housings, nhash, hostId, {housing with calendar});
@@ -539,14 +554,15 @@ shared ({ caller }) actor class Triourism () = this {
                 };
                 if(availableAllDaysResquest(data.checkIn, data.checkOut)){
                     let reservationId = await ramdomGenerator.randRange(1_000_000_000, 9_999_999_999);
+                    let reservation = {data with applicant = caller};
                     let responseReservation = {
                         houstingId = hostId;
                         reservationId;
-                        data;
+                        data = reservation;
                         msg = msg.PayRequest;
                         paymentCode = await ramdomGenerator.randRange(1_000_000_000_000_000_000_000, 9_999_999_999_999_999_999_999)
                     };
-                    ignore Map.put<Nat, Reservation>(housing.reservationRequests, nhash, reservationId, data );
+                    ignore Map.put<Nat, Reservation>(housing.reservationRequests, nhash, reservationId, reservation );
                     #Ok( responseReservation )
                 } else {
                     #Err( msg.NotAvalableAllDays);

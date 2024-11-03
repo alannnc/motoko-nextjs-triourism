@@ -115,11 +115,14 @@ module {
     public type ReviewsId = Text;
   ///////////////////////////////// Reservations /////////////////////////////
 
-    public type Reservation = {
+    public type ReservationDataInput = {
         checkIn: Int;   //Timestamp NanoSeg
-        checkOut: Int;  //Temestamp NanoSeg 
-        applicant: Principal;
+        checkOut: Int;  //Temestamp NanoSeg
         guest: Text;
+    };
+        
+    public type Reservation = ReservationDataInput and {
+        applicant: Principal;
     };
 
     // La primer posicion es siempre el dia actual con lo cual cada vez que se consulta se tiene que actualizar antes
