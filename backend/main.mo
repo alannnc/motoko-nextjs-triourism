@@ -173,22 +173,26 @@ shared ({ caller }) actor class Triourism () = this {
         Prim.nat64ToNat(Prim.intToNat64Wrap(x))
     };
     /////////// Probar ////////////
-    func insertReservationToCalendar(_calendar: [var CalendaryPart], reserv: Reservation): {#Ok: [var CalendaryPart]; #Err }{
-        let calendar = updateCalendar(_calendar); // Nos aseguramos de que el primer elemnto del array sea el dia actual
-        let checkInDay = intToNat((reserv.checkIn - now())) / 24 * NANO_SEG_PER_HOUR;
-        let daysQty = intToNat(reserv.checkOut - reserv.checkIn) / 24 * NANO_SEG_PER_HOUR;
+    func insertReservationToCalendar(_calendar: [var CalendaryPart], reserv: Reservation): {#Ok: [var CalendaryPart]; #Err } {
+        let calendar = updateCalendar(_calendar); // Asegura que el primer elemento sea el día actual
+        let checkInDay = intToNat((reserv.checkIn - now()) / (24 * NANO_SEG_PER_HOUR));
+        let daysQty = intToNat((reserv.checkOut - reserv.checkIn) / (24 * NANO_SEG_PER_HOUR));
         var index = checkInDay;
         var okBaby = true;
-        while (index < checkInDay + daysQty){
+        
+        // Comprobar disponibilidad
+        while (index < checkInDay + daysQty and index < calendar.size()) {
             if (not calendar[index].available) { 
                 okBaby := false;
-                index += daysQty;
-            };
-            index += 1;
+                index += daysQty; // Salir del bucle si no está disponible
+            } else {
+                index += 1;
+            }
         };
-        if( okBaby ) {
+
+        if (okBaby) {
             index := checkInDay;
-            while (index < checkInDay + daysQty){
+            while (index < checkInDay + daysQty and index < calendar.size()) {
                 let calendaryPart: CalendaryPart = { 
                     reservation = ?reserv;
                     day = index * 24 * NANO_SEG_PER_HOUR;
@@ -201,8 +205,8 @@ shared ({ caller }) actor class Triourism () = this {
         } else {
             #Err
         }
-
     };
+
 
   /////////////////////////// Manage admins functions /////////////////////////////////
 
@@ -592,6 +596,7 @@ shared ({ caller }) actor class Triourism () = this {
                         };
                         // TODO Verificacion datos de pago a traves del txHhahs
                         if (await paymentVerification(txHash)){
+                            print("insertando la reserva en el calendario");
                             let calendar = insertReservationToCalendar(updatedCalendar, reserv);
                             switch calendar {
                                 case (#Ok(calendar)) {
