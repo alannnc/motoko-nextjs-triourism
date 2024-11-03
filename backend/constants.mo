@@ -11,5 +11,6 @@ module {
     public let NotUser = "Unregistered user";
     public let CallerIsNotrequester = "The caller does not match the reservation requester";
     public let NotHost = "Te caller in not Host User profile";
+    public let InactiveHousing = "Housing is temporarily disabled"
 
 };

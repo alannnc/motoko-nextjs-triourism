@@ -50,12 +50,15 @@ module {
 
 
     public type Housing = HousingDataInit and {
+
         id: Nat; // Example L234324
         owner: Principal;
         calendar: [var CalendaryPart];
         reservationRequests: Map.Map<Nat, Reservation>;
+        reviews: [Text];
         photos: [Blob];
         thumbnail: Blob; // Se recomienda la foto principal en tamaño reducido
+        active: Bool;
     };
 
     public type HousingResponse = {
@@ -70,6 +73,7 @@ module {
             description: Text;
             amenities: [Text]; 
             hasNextPhoto: Bool;
+            reviews: [Text];
         };
         #OnlyPhoto :{
             photo: Blob;

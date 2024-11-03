@@ -316,6 +316,8 @@ shared ({ caller }) actor class Triourism () = this {
                                 calendar: [var CalendaryPart] = initCalendary();
                                 photos: [Blob] = [];
                                 thumbnail: Blob = "";
+                                active = true;
+                                reviews: [Text] = [];
                             };
                             ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId, newHousing);
                             let hosingIdListUpdate = Prim.Array_tabulate<Nat>(
@@ -411,6 +413,20 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
+    public shared ({ caller }) func setHousingStatus({id: HousingId; active: Bool}): async {#Ok; #Err: Text}{
+        let housing = Map.get<HousingId, Housing>(housings, nhash, id);
+        switch housing {
+            case null { #Err(msg.NotHosting)};
+            case ( ?housing ) {
+                if(caller != housing.owner) {
+                    return #Err(msg.CallerNotHousingOwner);
+                };
+                ignore Map.put<HousingId, Housing>(housings, nhash, id, {housing with active});
+                #Ok
+            }
+        }
+    };
+
   ////////////////////////////////// Getters ///////////////////////////////////////////////
 
     public query func getHousingPaginate(page: Nat): async ResultHousingPaginate {
@@ -421,7 +437,9 @@ shared ({ caller }) actor class Triourism () = this {
         let bufferHousingPreview = Buffer.fromArray<Housing>([]);
         var index = page * 10;
         while (index < values.size() and index < (page + 1) * 10){
-            bufferHousingPreview.add(values[index].1);
+            if(values[index].1.active){
+                bufferHousingPreview.add(values[index].1);
+            };
             index += 1;
         };
         #Ok{
@@ -435,6 +453,9 @@ shared ({ caller }) actor class Triourism () = this {
         return switch housing {
             case null { #Err(msg.NotHosting)};
             case (?housing) {
+                if(not housing.active) {
+                    return #Err(msg.InactiveHousing)
+                };
                 if(photoIndex == 0){
                     let housingResponse: HousingResponse = #Start({
                         housing with
