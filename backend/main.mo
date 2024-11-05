@@ -13,6 +13,7 @@ import msg "constants";
 
 ////////////// Debug imports ////////////////
 import { print } "mo:base/Debug";
+import Array "mo:base/Array";
  
 shared ({ caller }) actor class Triourism () = this {
 
@@ -206,7 +207,6 @@ shared ({ caller }) actor class Triourism () = this {
             #Err
         }
     };
-
 
   /////////////////////////// Manage admins functions /////////////////////////////////
 
@@ -499,8 +499,8 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public shared ({ caller }) func getMyHousingsPaginate({page: Nat}): async ResultHousingPaginate {
-        let user = Map.get<Principal, User>(users, phash, caller);
+    func getHousingsPaginate({owner: Principal; page: Nat}): ResultHousingPaginate {
+        let user = Map.get<Principal, User>(users, phash, owner);
         switch user {
             case null { #Err("There is no user associated with the caller")};
             case ( ?user ) {
@@ -526,8 +526,44 @@ shared ({ caller }) actor class Triourism () = this {
                     }
                 };
                 #Err("The user is not a hosting type user")
-
             }
+        }
+    };
+    public shared ({ caller }) func getMyHousingsPaginate({page: Nat}): async ResultHousingPaginate{
+        getHousingsPaginate({owner = caller; page})
+    };
+
+    public shared query ({ caller }) func getMyHousingDisponibility({days: [Nat]; page: Nat}): async ResultHousingPaginate{
+        let response = getHousingsPaginate({owner = caller; page});
+        switch response {
+            case ( #Ok({array; hasNext} )) {
+                let bufferResults = Buffer.fromArray<HousingPreview>([]);
+                for(hostPreview in array.vals()){
+                    let housing = Map.get<HousingId, Housing>(housings, nhash, hostPreview.id);
+                    switch housing {
+                        case ( ?housing ){
+                            if(days.size() == 0) {
+                                if(housing.calendar[0].available){
+                                    bufferResults.add(hostPreview);
+                                }
+                            } else {
+                                var allowed = true;
+                                for (d in days.vals()){
+                                    if (not housing.calendar[d].available) {
+                                        allowed := false
+                                    };
+                                };
+                                if(allowed) {
+                                    bufferResults.add(hostPreview)
+                                }            
+                            }
+                        };
+                        case _ {}
+                    }
+                };
+                #Ok({array = Buffer.toArray<HousingPreview>(bufferResults); hasNext})
+            };
+            case Err { Err }
         }
     };
 
@@ -589,6 +625,7 @@ shared ({ caller }) actor class Triourism () = this {
         }    
     };
 
+  
     func paymentVerification(txHash: Nat):async Bool{
         // TODO protocolo de verificacion de pago
         true
@@ -629,8 +666,9 @@ shared ({ caller }) actor class Triourism () = this {
                 }
             }
         }
-
-        
     };
 
+    // TODO confirmacion de reservacion por parte del dueño del Host
 };
+
+

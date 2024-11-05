@@ -47,6 +47,7 @@ module {
         description: Text;
         rules: [Text];
         amenities: [Text];
+        properties: {bed: Text; bathroom: Text };
     };
 
 
@@ -73,7 +74,8 @@ module {
             maxCapacity: Nat;
             description: Text;
             rules: [Text];
-            amenities: [Text]; 
+            amenities: [Text];
+            properties: {bed: Text; bathroom: Text };
             hasNextPhoto: Bool;
             reviews: [Text];
         };

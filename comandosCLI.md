@@ -84,7 +84,7 @@ Solicitud de reserva
 
 ```
 dfx canister call backend requestReservation '(record {
-    hostId = 1 : nat;
+    housingId = 1 : nat;
     data = record {
       checkIn = 1731198892000000000 : int;
       guest = "Leonardo";
