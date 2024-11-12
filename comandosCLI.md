@@ -6,7 +6,7 @@ registro de usuario huesped general:
 
 ```
 dfx canister call backend signUp '(record { 
-        name="Juan";
+        firstName="Juan";
         lastName="Perez";
         phone= null;
         email="juanperez@gmail.com"; 
@@ -18,7 +18,7 @@ registro de usuario tipo Host
 
 ```
 dfx canister call backend signUpAsHost '(record { 
-        name="Gerardo";
+        firstName="Gerardo";
         lastName="Anchorena";
         phone= opt 54221548797;
         email="gerardonchorena@gmail.com";  
@@ -46,7 +46,15 @@ dfx canister call backend publishHousing '(record {
             }
         }
     }; 
-    kind = variant {House}}
+    kind = variant {House};
+    properties = record{
+        beds= vec{
+            variant {Single = 2};
+            variant {SofaBed = 2}
+        };
+        bathroom = true 
+    };
+}
 )'
 ```
 
@@ -92,4 +100,3 @@ dfx canister call backend requestReservation '(record {
     };
 })'
 ```
-

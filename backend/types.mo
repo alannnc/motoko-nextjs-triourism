@@ -1,9 +1,10 @@
 import Map "mo:map/Map";
+import Nat "mo:base/Nat";
 module {
   ////////////////////////////// Users /////////////////////////////////////
 
     public type SignUpData = {
-        name: Text;
+        firstName: Text;
         lastName: Text;
         phone: ?Nat;
         email: Text;
@@ -41,13 +42,14 @@ module {
     public type HousingDataInit = {
         minReservationLeadTimeNanoSec: Int; //valor en nanoSeg de anticipación para efectuar una reserva
         address: Text;
+
         prices: [Price];
         kind: HousingKind;
         maxCapacity: Nat;
         description: Text;
         rules: [Text];
         amenities: [Text];
-        properties: {bed: Text; bathroom: Text };
+        properties: {beds: [BedKind]; bathroom: Bool };
     };
 
 
@@ -63,19 +65,19 @@ module {
         active: Bool;
     };
 
+    type BedKind = {
+        #Single: Nat;
+        #Matrimonial: Nat;
+        #SofaBed: Nat;
+        // Agregar mas variantes
+    };
+
     public type HousingResponse = {
-        #Start : {id: Nat;
+        #Start : HousingDataInit and {id: Nat;
             owner: Principal;
             calendar: [CalendaryPart];
             photo: Blob;
             thumbnail: Blob;
-            prices: [Price];
-            kind: HousingKind;
-            maxCapacity: Nat;
-            description: Text;
-            rules: [Text];
-            amenities: [Text];
-            properties: {bed: Text; bathroom: Text };
             hasNextPhoto: Bool;
             reviews: [Text];
         };

@@ -73,14 +73,10 @@ shared ({ caller }) actor class Triourism () = this {
             case (?User) { #Err("User already exists") };
             case null {
                 let newUser: User = {
+                    data with
                     kinds: [UserKind] = [kind];
-                    name = data.name;
-                    lastName = data.lastName;
-                    phone = data.phone;
-                    email = data.email;
                     verified = true;
                     score = 0;
-                    // avatar = data.avatar;
                 };
                 ignore Map.put(users, phash, p, newUser);
                 #Ok(newUser);
@@ -499,7 +495,7 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    func getHousingsPaginate({owner: Principal; page: Nat}): ResultHousingPaginate {
+    func getHousingsPaginateByOwner({owner: Principal; page: Nat}): ResultHousingPaginate {
         let user = Map.get<Principal, User>(users, phash, owner);
         switch user {
             case null { #Err("There is no user associated with the caller")};
@@ -530,11 +526,11 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
     public shared ({ caller }) func getMyHousingsPaginate({page: Nat}): async ResultHousingPaginate{
-        getHousingsPaginate({owner = caller; page})
+        getHousingsPaginateByOwner({owner = caller; page})
     };
 
     public shared query ({ caller }) func getMyHousingDisponibility({days: [Nat]; page: Nat}): async ResultHousingPaginate{
-        let response = getHousingsPaginate({owner = caller; page});
+        let response = getHousingsPaginateByOwner({owner = caller; page});
         switch response {
             case ( #Ok({array; hasNext} )) {
                 let bufferResults = Buffer.fromArray<HousingPreview>([]);
@@ -669,6 +665,8 @@ shared ({ caller }) actor class Triourism () = this {
     };
 
     // TODO confirmacion de reservacion por parte del dueño del Host
+    // public shared ({ caller }) func confirmReservation({reservId: Nat; hostId: HousingId}): async {
+        
+    // };
 };
-
 
