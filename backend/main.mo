@@ -621,7 +621,6 @@ shared ({ caller }) actor class Triourism () = this {
         }    
     };
 
-  
     func paymentVerification(txHash: Nat):async Bool{
         // TODO protocolo de verificacion de pago
         true
@@ -664,9 +663,11 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    // TODO confirmacion de reservacion por parte del dueño del Host
-    // public shared ({ caller }) func confirmReservation({reservId: Nat; hostId: HousingId}): async {
+    // // TODO confirmacion de reservacion por parte del dueño del Host
+    // public shared ({ caller }) func confirmReservation({reservId: Nat; hostId: HousingId}): async (){
         
     // };
+
+
 };
 
