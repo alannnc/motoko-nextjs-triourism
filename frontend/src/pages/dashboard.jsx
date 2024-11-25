@@ -40,7 +40,8 @@ function Dashboard() {
             <span className="text-xl font-bold text-[#1C1E21]">
               Seleccionar el tipo de reservas para este alojamiento:
             </span>
-            <span className="text-sm font-normal text-[#64748B] mt-7">
+						<br/>
+            <span className="text-sm font-normal text-[#64748B] mt-10">
               Dependiendo de la opción que elijas, la plataforma se ajustará automáticamente a tus
               necesidades.
             </span>

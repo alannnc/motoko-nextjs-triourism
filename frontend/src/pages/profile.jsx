@@ -3,6 +3,7 @@ import Image from "next/image";
 import React from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useRouter } from 'next/router';
 
 // Esquema de validación con zod
 const schema = z.object({
@@ -22,6 +23,7 @@ const schema = z.object({
 });
 
 function Profile() {
+  const router = useRouter();
   const {
     register,
     handleSubmit,
@@ -32,7 +34,7 @@ function Profile() {
   });
 
   const onSubmit = (data) => {
-    console.log(data);
+		router.push('/dashboard');
   };
 
   // Función para formatear el número de teléfono
@@ -50,8 +52,8 @@ function Profile() {
           <Image src="/images/background.svg" alt="Hero Illustration" layout="fill" objectFit="cover" />
         </section>
 
-        <div className="fixed z-20 flex flex-col w-[567px] h-[80%] justify-start p-6 rounded-3xl border border-[#E2E8F0] bg-[#E3EFFD] top-1/2 right-11 transform -translate-y-1/2">
-          <span className="text-2xl font-bold text-[#1C1E21] mt-4 mb-6">Crea tu perfil</span>
+        <div className="fixed z-20 flex flex-col w-[567px] h-[80%] justify-start p-6 rounded-3xl border border-[#E2E8F0] bg-[#E3EFFD] top-1/2 right-16 transform -translate-y-1/2">
+          <span className="text-2xl font-bold text-[#1C1E21] mt-8 mb-6">Crea tu perfil</span>
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-col items-start justify-start space-y-4">
@@ -107,7 +109,7 @@ function Profile() {
               />
               {errors.phone && <span className="text-red-500 text-sm">{errors.phone.message}</span>}
             </div>
-            <div className="h-14 w-full p-2 rounded-lg bg-[#C8D6EA]">
+            <div className="h-14 w-full p-2 rounded-lg bg-[#C8D6EA] mt-2">
               <span className="text-xs font-normal text-[#1C1E21]">
                 Tus datos no serán compartidos. Solo los utilizaremos para enviarte notificaciones sobre tu
                 reservación.
@@ -115,7 +117,7 @@ function Profile() {
             </div>
             <button
               type="submit"
-              className="h-10 w-28 flex items-center justify-center rounded-md bg-[#3581EC] text-white transition-colors duration-150 ease-in-out">
+              className="h-10 w-28 flex items-center justify-center rounded-md bg-[#3581EC] text-white transition-colors duration-150 ease-in-out cursor-pointer">
               <span className="text-sm font-medium text-white">Crear</span>
             </button>
           </form>
