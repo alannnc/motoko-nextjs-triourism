@@ -2,6 +2,14 @@
   "version": 1,
   "dfx": "0.20.1",
   "canisters": {
+    "backend": {
+      "main": "backend/main.mo",
+      "type": "motoko",
+      "declarations": {
+        "output": "frontend/src/declarations/backend"
+      }
+
+    },
     "test": {
       "type": "motoko",
       "main": "backend/test/main.mo",
@@ -11,11 +19,15 @@
       }
     },
     "frontend": {
-      "dependencies": ["test"],
+      "dependencies": [
+        "test"
+      ],
       "frontend": {
         "entrypoint": "frontend/build/index.html"
       },
-      "source": ["frontend/build"],
+      "source": [
+        "frontend/build"
+      ],
       "type": "assets"
     },
     "internet-identity": {
@@ -28,6 +40,11 @@
           "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
         }
       }
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "mops sources"
     }
   }
 }
