@@ -38,32 +38,74 @@ module {
     // };
 
   ///////////////////////////////// Housing /////////////////////////////////
-    
-    public type HousingDataInit = {
-        minReservationLeadTimeNanoSec: Int; //valor en nanoSeg de anticipación para efectuar una reserva
-        address: Text;
-
-        prices: [Price];
-        kind: HousingKind;
-        maxCapacity: Nat;
-        description: Text;
-        rules: [Text];
-        amenities: [Text];
-        properties: {beds: [BedKind]; bathroom: Bool };
-    };
 
 
-    public type Housing = HousingDataInit and {
-
-        id: Nat; // Example L234324
-        owner: Principal;
-        calendar: [var CalendaryPart];
-        reservationRequests: Map.Map<Nat, Reservation>;
-        reviews: [Text];
+    public type HousingCreateData = {
+        namePlace: Text;
+        nameHost: Text;
+        descriptionPlace: Text;
+        descriptionHost: Text;
+        link: Text;
         photos: [Blob];
-        thumbnail: Blob; // Se recomienda la foto principal en tamaño reducido
-        active: Bool;
+        thumbnail: Blob;
+
     };
+
+    public type Rule = {
+        #PetsAllowed: Bool;
+        #SmookingAllowed: Bool;
+        #PartiesAllowed: Bool;
+        #AdditionalGuests: Bool;
+        #NoiseAfter10pm: Bool;
+        #ParkOnTheStreet: Bool;
+        #CustomRule: {rule: Text; allowed: Bool};
+    };
+
+    public type Housing = HousingCreateData and {
+        active: Bool;
+        id: Nat;
+        prices: [Price];
+        owner: Principal;
+        rules: [Rule];
+        checkIn: Int;
+        checkOut: Int;
+        address: Text;
+        properties: [Property];
+        amenities: [Text]      
+    };
+
+
+    public type Property = {
+        nameType: Text;
+        beds: [BedKind]; 
+        bathroom: Bool;
+        maxGuest: Nat;
+        extraGuest: Nat;
+    };
+
+    // public type HousingDataInit = {
+    //     minReservationLeadTimeNanoSec: Int; //valor en nanoSeg de anticipación para efectuar una reserva
+    //     address: Text;
+    //     prices: [Price];
+    //     kind: HousingKind;
+    //     maxCapacity: Nat;
+    //     description: Text;
+    //     rules: [Text];
+    //     amenities: [Text];
+    //     properties: [Property];
+    // };
+
+    // public type Housing = HousingDataInit and {
+
+    //     id: Nat; // Example L234324
+    //     owner: Principal;
+    //     calendar: [var CalendaryPart];
+    //     reservationRequests: Map.Map<Nat, Reservation>;
+    //     reviews: [Text];
+    //     photos: [Blob];
+    //     thumbnail: Blob; // Se recomienda la foto principal en tamaño reducido
+    //     active: Bool;
+    // };
 
     type BedKind = {
         #Single: Nat;
@@ -73,13 +115,8 @@ module {
     };
 
     public type HousingResponse = {
-        #Start : HousingDataInit and {id: Nat;
-            owner: Principal;
-            calendar: [CalendaryPart];
-            photo: Blob;
-            thumbnail: Blob;
+        #Start : Housing and {
             hasNextPhoto: Bool;
-            reviews: [Text];
         };
         #OnlyPhoto :{
             photo: Blob;
@@ -101,11 +138,11 @@ module {
         #Err: Text;
     };
 
-    public type HousingKind = {
-        #House;
-        #Hotel_room: Text; //Ejemplo #Hotel_room("Single Room")
-        #RoomWithSharedSpaces: [Rules]; //Hostels/Pensiones
-    };
+    // public type HousingKind = {
+    //     #House;
+    //     #Hotel_room: Text; //Ejemplo #Hotel_room("Single Room")
+    //     #RoomWithSharedSpaces: [Rule]; //Hostels/Pensiones
+    // };
 
     public type Price = {
         #PerNight: Nat;
@@ -113,10 +150,10 @@ module {
         #CustomPeriod: [{dais: Nat; price: Nat}];
     };
 
-    public type Rules = { // Ejemplo de Rule: {key = "Horarios"; value = "Sin ruidos molestos entre las 22:00 y las 8:00"}
-        key: Text;
-        value: Text
-    };
+    // public type Rules = { // Ejemplo de Rule: {key = "Horarios"; value = "Sin ruidos molestos entre las 22:00 y las 8:00"}
+    //     key: Text;
+    //     value: Text
+    // };
 
     public type ReviewsId = Text;
   ///////////////////////////////// Reservations /////////////////////////////
@@ -134,13 +171,10 @@ module {
     // La primer posicion es siempre el dia actual con lo cual cada vez que se consulta se tiene que actualizar antes
     // Para facilitar la implementacion inicial se considera una lista de Disponibility mutable de 30 posiciones
     public type Disponibility = {day: Int; available: Bool};
-    // public type Calendar = [var Disponibility];
 
-    // El rango de no disponibilidad se establece con el campo day y el campo checkOut de reservation
+
     public type CalendaryPart = Disponibility and {reservation: ?Reservation};
-    // public type Calendary = [var CalendaryPart];
 
-    // public type FrozenCalendar = [CalendaryPart]
 
 
 
