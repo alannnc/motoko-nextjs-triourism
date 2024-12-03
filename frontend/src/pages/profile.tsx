@@ -4,6 +4,8 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useRouter } from 'next/router';
+import { useAuth, useCandidActor } from "@bundly/ares-react";
+import { CandidActors } from "@app/canisters";
 
 // Esquema de validación con zod
 const schema = z.object({
@@ -21,30 +23,63 @@ const schema = z.object({
     .regex(/^\d{2}\s\d{2}\s\d{2}\s\d{2}\s\d{2}$/, { message: "Formato de teléfono debe ser XX XX XX XX XX" })
     .optional(),
 });
-
+interface IProfileData {
+  name: string;
+  lastname: string;
+  phone: string;
+  email: string;
+}
 function Profile() {
+	const { currentIdentity } = useAuth();
+	const { isAuthenticated } = useAuth();
+	const backend = useCandidActor<CandidActors>(
+    "backend",
+    currentIdentity
+  ) as CandidActors["backend"];
   const router = useRouter();
   const {
     register,
     handleSubmit,
     setValue,
     formState: { errors },
-  } = useForm({
+  } = useForm<IProfileData>({
     resolver: zodResolver(schema),
   });
 
-  const onSubmit = (data) => {
-		router.push('/dashboard');
+  const onSubmit = async (data:IProfileData) => {
+    try {
+			const json={
+				firstName: data.name,
+        lastName: data.lastname,
+        phone: data.phone ? ([BigInt(data.phone.replace(/\s+/g, ''))] as [bigint]) : ([] as []),
+        email: data.email
+			}
+      const response = await backend.signUpAsHost(json);
+			debugger
+      if ("Err" in response) {
+        const errorResponse = response.Err as { userNotAuthenticated?: unknown };
+        if (response.Err === "User already exists") router.push('/dashboard');
+
+        throw new Error("Error creating profile");
+      }
+      if ("ok" in response) {
+				router.push('/dashboard');
+      }
+    } catch (error) {
+			debugger
+      console.error({ error });
+    }
+	
   };
 
   // Función para formatear el número de teléfono
-  const formatPhoneNumber = (e) => {
+  const formatPhoneNumber = (e: React.ChangeEvent<HTMLInputElement>) => {
     let input = e.target.value.replace(/\D/g, ""); // Remueve caracteres no numéricos
     if (input.length > 10) input = input.slice(0, 10); // Limita a 10 dígitos
     const formattedPhone = input.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, "$1 $2 $3 $4 $5");
     setValue("phone", formattedPhone); // Establece el valor formateado
   };
-
+console.log(isAuthenticated,'---------isAuthenticated---------')
   return (
     <>
       <div className="flex flex-col min-h-screen w-full overflow-hidden relative">

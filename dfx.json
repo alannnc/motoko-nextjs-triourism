@@ -2,6 +2,14 @@
   "version": 1,
   "dfx": "0.22.0",
   "canisters": {
+    "backend": {
+      "main": "backend/main.mo",
+      "type": "motoko",
+      "declarations": {
+        "output": "frontend/src/declarations/backend"
+      }
+
+    },
     "test": {
       "type": "motoko",
       "main": "backend/test/main.mo",
@@ -11,11 +19,15 @@
       }
     },
     "frontend": {
-      "dependencies": ["test"],
+      "dependencies": [
+        "test"
+      ],
       "frontend": {
         "entrypoint": "frontend/build/index.html"
       },
-      "source": ["frontend/build"],
+      "source": [
+        "frontend/build"
+      ],
       "type": "assets"
     },
     "internet-identity": {
