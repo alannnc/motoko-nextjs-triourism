@@ -12,6 +12,11 @@ node_modules
 .dfx
 src/declarations
 
+# Mops
+.mops
+
+# Github
+nohup.out
 # Azle
 .azle
 
