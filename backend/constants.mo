@@ -14,6 +14,7 @@ module {
     public let NotHost = "Te caller in not Host User profile";
     public let InactiveHousing = "Housing is temporarily disabled";
     public let ZeroIsNotAllowed = "Is not greater than zero";
-    public let IsNotpublishable = "Not publishable due to missing data"
+    public let IsNotpublishable = "Not publishable due to missing data";
+    public let HousingTypeExist = "The housing type already exists";
 
 };

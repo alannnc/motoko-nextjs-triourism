@@ -328,19 +328,37 @@ shared ({ caller }) actor class Triourism () = this {
         Buffer.toArray<Types.UserKind>(bufferKinds);
     };
 
+    func addressEqual(a: Types.Location, b: Types.Location ) : Bool {
+        a.country == b.country and
+        a.city == b.city and
+        a.neighborhood == b.neighborhood and
+        a.zipCode == b.zipCode and
+        a.externalNumber == b.externalNumber and
+        a.internalNumber == b.internalNumber
+    };
+
+    let NULL_LOCATION = {
+        country = "";
+        city = ""; 
+        neighborhood = ""; 
+        zipCode = 0; street = "";  
+        externalNumber = 0; 
+        internalNumber = 0
+    };
+
     let defaultHousinValues = {
         active: Bool = false;
         rules: [Types.Rule] = [];
         prices: [Types.Price] = [];
         checkIn: Nat = 15;
         checkOut: Nat = 12;
-        address: Text = "";
+        address: Types.Location = NULL_LOCATION;
         properties: [Types.Property] = [];
         amenities: [Text] = [];
         calendar: [var Types.CalendaryPart] = [var];
     };
 
-    public shared ({ caller }) func createHousings(dataInit: HousingCreateData): async {#Ok: Nat; #Err: Text} {
+    public shared ({ caller }) func createHousing(dataInit: HousingCreateData): async {#Ok: Nat; #Err: Text} {
         let user = Map.get<Principal, User>(users, phash, caller);
         switch user {
             case null {#Err(msg.NotUser)};
@@ -364,7 +382,7 @@ shared ({ caller }) actor class Triourism () = this {
 
     func isPublishable(housing: Housing): Bool {
         (housing.prices.size() > 0) and
-        (housing.address != "") and
+        (addressEqual(housing.address, NULL_LOCATION)) and
         (housing.properties.size() > 0)
     };
 
@@ -504,7 +522,7 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public shared ({ caller }) func setAddress({housingId: HousingId; address: Text}): async {#Ok; #Err: Text}{
+    public shared ({ caller }) func setAddress({housingId: HousingId; address: Types.Location}): async {#Ok; #Err: Text}{
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         switch housing {
             case null { #Err(msg.NotHousing)};
@@ -517,6 +535,32 @@ shared ({ caller }) actor class Triourism () = this {
             }
         }
     
+    };
+
+    func createHousingType(user: Principal, propertiesOfType: Types.Property): {#Ok; #Err: Text} {
+        let housingTypesMap: HousingTypesMap = 
+            switch(Map.get<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, user)){
+                case null {Map.new<Text, {properties: Types.Property; housingIds: [HousingId]}>() };
+                case ( ?map ) { map }
+            };
+        switch (Map.get<Text, {properties: Types.Property; housingIds: [HousingId]}>(
+            housingTypesMap, 
+            thash,
+            propertiesOfType.nameType)) {
+                case null {
+                    // Creación del nuevo tipo 
+                    ignore Map.put<Text, {properties: Types.Property; housingIds: [HousingId]}>(
+                        housingTypesMap, 
+                        thash,
+                        propertiesOfType.nameType,
+                        {properties = propertiesOfType; housingIds: [HousingId] = []}
+                    );
+                    #Ok
+                };
+                case (_) {
+                    #Err(msg.HousingTypeExist)
+                }
+        }
     };
 
     func putHousingType(user: Principal, propertiesOfType: Types.Property, housingId: HousingId ){
@@ -544,9 +588,8 @@ shared ({ caller }) actor class Triourism () = this {
         );
 
     };
-
     
-    public shared ({ caller }) func setTypeHousing({housingId: HousingId; qty: Nat; propertiesOfType: Types.Property}): async {#Ok; #Err: Text} {
+    public shared ({ caller }) func assignHousingType({housingId: HousingId; qty: Nat; propertiesOfType: Types.Property}): async {#Ok; #Err: Text} {
         
         let user = Map.get<Principal, User>(users, phash, caller);
         switch user {
@@ -560,26 +603,32 @@ shared ({ caller }) actor class Triourism () = this {
                         if(caller != housing.owner) {
                             return #Err(msg.CallerNotHousingOwner);
                         };
-                        ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with propertiesOfType});
-                        // agregamos la habitacion actual al nuevo tipo creado
-                        putHousingType(caller, propertiesOfType, housingId);
-                        // Clonacion de habitacion segun qty con valores por defecto para las nuevas
-                        var index = 1; // la habitacion a partir de la que se define el tipo no se cuenta porque ya tiene su propio id
-                        while (index < qty ){
-                            lastHousingId += 1;
-                            let newHousing: Housing = {
-                                housing with
-                                id = lastHousingId;
-                                active = false;
-                                propertiesOfType
-                            };
-                            putHousingType(caller, propertiesOfType, lastHousingId);    
-                            ignore Map.put<Principal, User>(users, phash, caller, user );
-                            ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId,newHousing );
+                        let createResponse = createHousingType(caller,propertiesOfType);
+                        switch createResponse {
+                            case (#Ok) {
+                                ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with propertiesOfType});
+                                // agregamos la habitacion actual al nuevo tipo creado
+                                putHousingType(caller, propertiesOfType, housingId);
+                                // Clonacion de habitacion segun qty con valores por defecto para las nuevas
+                                var index = 1; // la habitacion a partir de la que se define el tipo no se cuenta porque ya tiene su propio id
+                                while (index < qty ){
+                                    lastHousingId += 1;
+                                    let newHousing: Housing = {
+                                        housing with
+                                        id = lastHousingId;
+                                        active = false;
+                                        propertiesOfType
+                                    };
+                                    putHousingType(caller, propertiesOfType, lastHousingId);    
+                                    ignore Map.put<Principal, User>(users, phash, caller, user );
+                                    ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId,newHousing );
 
-                            index += 1;
-                        };
-                        #Ok
+                                    index += 1;
+                                };
+                                #Ok
+                            };
+                            case (#Err(msg)) {#Err(msg)}
+                        };         
                     }
                 }
 
@@ -616,7 +665,7 @@ shared ({ caller }) actor class Triourism () = this {
             }
         } 
     };
-  ////////////////////////////////// Getters ///////////////////////////////////////////////
+  ///////////////////////////////////////// Getters ////////////////////////////////////////
 
     public query func getHousingPaginate({page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate {
         if(Map.size(housings) < page * qtyPerPage){
@@ -663,8 +712,9 @@ shared ({ caller }) actor class Triourism () = this {
             };
         }
     };
+  //TODO servicio que devuelva los tipos 
 
-    public shared ({ caller }) func getMyHousingsByType({_housingType: Text; page: Nat}): async ResultHousingPaginate{
+    public shared ({ caller }) func getMyHousingsByType({housingType: Text; page: Nat}): async ResultHousingPaginate{
         let housingTypeMap = Map.get<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, caller);
         switch housingTypeMap {
             case null {#Err("Not Housing Types")};
@@ -672,7 +722,7 @@ shared ({ caller }) actor class Triourism () = this {
                 let housingsType = Map.get<Text, {properties: Types.Property; housingIds: [HousingId]}>(
                     map,
                     thash,
-                    _housingType
+                    housingType
                 );
                 switch housingsType {
                     case null { #Err("Not housing type")};
@@ -707,7 +757,6 @@ shared ({ caller }) actor class Triourism () = this {
         #Ok({array = Buffer.toArray<HousingPreview>(resultBuffer); hasNext: Bool});
     };
 
-
     func getHousingsPaginateByOwner({owner: Principal; page: Nat}): ResultHousingPaginate {
         let user = Map.get<Principal, User>(users, phash, owner);
         switch user {
@@ -738,6 +787,7 @@ shared ({ caller }) actor class Triourism () = this {
             }
         }
     };
+
     public shared ({ caller }) func getMyHousingsPaginate({page: Nat}): async ResultHousingPaginate{
         getHousingsPaginateByOwner({owner = caller; page})
     };
@@ -795,7 +845,7 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public query func getAmenities(housingId: HousingId): async [Text] {
+    public query func getAmenities({housingId: HousingId}): async [Text] {
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         switch housing {
             case null { [] };

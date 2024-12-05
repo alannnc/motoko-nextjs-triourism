@@ -58,7 +58,18 @@ module {
         #AdditionalGuests: Bool;
         #NoiseAfter10pm: Bool;
         #ParkOnTheStreet: Bool;
+        #VisitsAllowed: Bool;
         #CustomRule: {rule: Text; allowed: Bool};
+    };
+
+    public type Location = {
+        country: Text;
+        city: Text;
+        neighborhood: Text;
+        zipCode: Nat;
+        street: Text;
+        externalNumber: Nat;
+        internalNumber: Nat;
     };
 
     public type Housing = HousingCreateData and {
@@ -69,16 +80,22 @@ module {
         rules: [Rule];
         checkIn: Int;
         checkOut: Int;
-        address: Text;
+        address: Location;
         properties: [Property];
         amenities: [Text]      
     };
 
-
+    public type Bathroom = {
+        toilette: Bool;
+        shower: Bool;
+        bathtub: Bool;
+        isShared: Bool;
+        sink: Bool;
+    };
     public type Property = {
         nameType: Text;
         beds: [BedKind]; 
-        bathroom: Bool;
+        bathroom: Bathroom;
         maxGuest: Nat;
         extraGuest: Nat;
     };
@@ -126,7 +143,7 @@ module {
 
     public type HousingPreview = {
         id: Nat;
-        address: Text;
+        address: Location;
         thumbnail: Blob;
         prices: [Price];
     };
