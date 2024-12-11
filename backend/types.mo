@@ -62,6 +62,33 @@ module {
         #CustomRule: {rule: Text; allowed: Bool};
     };
 
+    public type Amenities = {
+        freeWifi: Bool;
+        airCond: Bool; // Aire acondicionado
+        flatTV: Bool; // TV de pantalla plana
+        minibar: Bool;
+        safeBox: Bool; // Caja de seguridad
+        roomService: Bool; // Servicio a la habitación
+        premiumLinen: Bool; // Ropa de cama premium
+        ironBoard: Bool; // Plancha y tabla de planchar
+        privateBath: Bool; // Baño privado con artículos de tocador
+        hairDryer: Bool; // Secador de pelo
+        hotelRest: Bool; // Restaurante en el hotel
+        barLounge: Bool; // Bar y lounge
+        buffetBrkfst: Bool; // Desayuno buffet
+        lobbyCoffee: Bool; // Servicio de café/té en el lobby
+        catering: Bool; // Servicio de catering para eventos
+        specialMenu: Bool; // Menú para dietas especiales (bajo solicitud)
+        outdoorPool: Bool; // Piscina al aire libre
+        spaWellness: Bool; // Spa y centro de bienestar
+        gym: Bool;
+        jacuzzi: Bool;
+        gameRoom: Bool; // Salón de juegos
+        tennisCourt: Bool; // Pista de tenis
+        natureTrails: Bool; // Acceso a senderos naturales
+        custom: [{amenitieName: Text; value: Bool}];
+    };
+
     public type Location = {
         country: Text;
         city: Text;
@@ -82,7 +109,7 @@ module {
         checkOut: Int;
         address: Location;
         properties: [Property];
-        amenities: [Text]      
+        amenities: ?Amenities;
     };
 
     public type Bathroom = {

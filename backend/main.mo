@@ -354,7 +354,7 @@ shared ({ caller }) actor class Triourism () = this {
         checkOut: Nat = 12;
         address: Types.Location = NULL_LOCATION;
         properties: [Types.Property] = [];
-        amenities: [Text] = [];
+        amenities = null;
         calendar: [var Types.CalendaryPart] = [var];
     };
 
@@ -631,7 +631,6 @@ shared ({ caller }) actor class Triourism () = this {
                         };         
                     }
                 }
-
             }
         };   
     };
@@ -652,7 +651,7 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public shared ({ caller }) func setAmenities(amenities: [Text], housingId: HousingId): async {#Ok; #Err: Text}{
+    public shared ({ caller }) func setAmenities(amenities: Types.Amenities, housingId: HousingId): async {#Ok; #Err: Text}{
        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         switch housing {
             case null { #Err(msg.NotHousing)};
@@ -660,7 +659,11 @@ shared ({ caller }) actor class Triourism () = this {
                 if(caller != housing.owner) {
                     return #Err(msg.CallerNotHousingOwner);
                 };
-                ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with amenities});
+                ignore Map.put<HousingId, Housing>(
+                    housings, 
+                    nhash, 
+                    housingId, 
+                    {housing with amenities = ?amenities});
                 #Ok
             }
         } 
@@ -845,16 +848,15 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public query func getAmenities({housingId: HousingId}): async [Text] {
+    public query func getAmenities({housingId: HousingId}): async ?Types.Amenities {
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         switch housing {
-            case null { [] };
+            case null { null };
             case (?housing) {
                 housing.amenities
             }
         }
     };
-
 
 
     // public shared query ({ caller }) func getReservations({housingId: Nat}): async {#Ok: [(Nat, Reservation)]; #Err: Text}{
