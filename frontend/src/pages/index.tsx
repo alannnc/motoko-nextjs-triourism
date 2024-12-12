@@ -74,59 +74,14 @@ export default function IcConnectPage() {
   return (
     <>
       <Header />
-      <main className="p-6">
-        <div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-8">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-2">User Info</h2>
-              <p className="mt-4 text-sm text-gray-500">
+      <main className="p-6 bg-[#1e293b] min-h-screen">
+              <h2 className="text-xl text-[#E3EFFD] font-bold mb-2">User Info</h2>
+              <p className="mt-4 text-sm text-[#E3EFFD]">
                 <strong>Status:</strong> {isAuthenticated ? "Authenticated" : "Not Authenticated"}
               </p>
-              <p className="text-gray-700">
+              <p className="text-[#E3EFFD]">
                 <strong>Current Identity:</strong> {currentIdentity.getPrincipal().toString()}
               </p>
-              <h2 className="text-xl font-bold mb-2">Profile</h2>
-              {profile ? (
-                <>
-                  <p>
-                    <strong>Username: </strong> {profile.username}
-                  </p>
-                  <p>
-                    <strong>Bio: </strong> {profile.bio}
-                  </p>
-                </>
-              ) : (
-                <CreateProfileForm onSubmit={registerProfile} loading={loading} />
-              )}
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-2">Identities</h2>
-              <ul className="divide-y divide-gray-200">
-                {identities.map((identity, index) => (
-                  <li key={index} className="flex items-center justify-between py-4">
-                    <span className="text-gray-900">
-                      {identity.provider} : {formatPrincipal(identity.identity.getPrincipal().toString())}
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        className={`px-3 py-1 text-sm rounded-md ${
-                          disableIdentityButton(identity.identity)
-                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            : "bg-blue-500 text-white"
-                        }`}
-                        disabled={disableIdentityButton(identity.identity)}
-                        onClick={() => changeCurrentIdentity(identity.identity)}>
-                        Select
-                      </button>
-                      <LogoutButton identity={identity.identity} />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
       </main>
     </>
   );
