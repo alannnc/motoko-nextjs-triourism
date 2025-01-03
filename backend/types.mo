@@ -169,6 +169,7 @@ module {
     };
 
     public type HousingPreview = {
+        active: Bool;
         id: Nat;
         address: Location;
         thumbnail: Blob;

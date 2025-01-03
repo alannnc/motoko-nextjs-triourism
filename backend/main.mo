@@ -559,6 +559,7 @@ shared ({ caller }) actor class Triourism () = this {
                     propertiesOfType.nameType,
                     {properties = propertiesOfType; housingIds: [HousingId] = []}
                 );
+                ignore Map.put<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, user, housingTypesMap);
                 #Ok
             };
             case (_) {
@@ -672,6 +673,7 @@ shared ({ caller }) actor class Triourism () = this {
             }
         } 
     };
+    
   ///////////////////////////////////////// Getters ////////////////////////////////////////
 
     public query func getHousingPaginate({page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate {
@@ -693,11 +695,21 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public shared ({ caller }) func getCalendarById(id: Nat): async {#Ok: Calendary; #Err: Text}{
-        switch (Map.get<HousingId, Calendary>(calendars, nhash, id)) {
-            case null { #Err(msg.NotHousing)};
-            case (?calendar) { #Ok(calendar) }
-        }
+    public shared query ({ caller }) func getCalendarById(id: Nat): async {#Ok: Calendary; #Err: Text}{
+        switch (Map.get<HousingId, Housing>(housings, nhash, id)) {
+            case (?housing) { 
+                if(housing.active) {
+                    switch (Map.get<HousingId, Calendary>(calendars, nhash, id)) {
+                        case null { return #Err(msg.NotHousing)};    
+                        case (?calendar) { return #Ok(calendar) }
+                    }
+                } else {
+                    return #Err(msg.InactiveHousing)
+                }
+            };
+            case null { return #Err(msg.NotHousing)};   
+        };
+        
     };
 
     public query func getHousingById({housingId: HousingId;  photoIndex: Nat}): async {#Ok: HousingResponse; #Err: Text} {
@@ -726,9 +738,10 @@ shared ({ caller }) actor class Triourism () = this {
             };
         }
     };
+
   //TODO servicio que devuelva los tipos 
 
-    public shared ({ caller }) func getMyHousingsByType({housingType: Text; page: Nat}): async ResultHousingPaginate{
+    public shared query ({ caller }) func getMyHousingsByType({housingType: Text; page: Nat}): async ResultHousingPaginate{
         let housingTypeMap = Map.get<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, caller);
         switch housingTypeMap {
             case null {#Err("Not Housing Types")};
@@ -757,6 +770,7 @@ shared ({ caller }) actor class Triourism () = this {
                 case (?housing) {          
                     resultBuffer.add( 
                         { 
+                            active = housing.active;
                             id = ids[index];
                             address = housing.address;
                             thumbnail = housing.thumbnail;
@@ -802,7 +816,7 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public shared ({ caller }) func getMyHousingsPaginate({page: Nat}): async ResultHousingPaginate{
+    public shared query ({ caller }) func getMyHousingsPaginate({page: Nat}): async ResultHousingPaginate{
         getHousingsPaginateByOwner({owner = caller; page})
     };
 
@@ -853,7 +867,6 @@ shared ({ caller }) actor class Triourism () = this {
 
     public shared query ({ caller }) func getMyHousingDisponibility({checkIn: Nat; checkOut: Nat; page: Nat}): async ResultHousingPaginate{
         let response = getHousingsPaginateByOwner({owner = caller; page});
-        print(debug_show(response));
         switch response {
             case (#Ok({array; hasNext} )){
                 let bufferResults = Buffer.fromArray<HousingPreview>([]);
