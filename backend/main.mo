@@ -15,6 +15,7 @@ import msg "constants";
 import { print } "mo:base/Debug";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
+import Int "mo:base/Int";
  
 shared ({ caller }) actor class Triourism () = this {
 
@@ -375,6 +376,7 @@ shared ({ caller }) actor class Triourism () = this {
                 let kinds = addIdToHostKind(user.kinds, lastHousingId);
                 ignore Map.put<Principal, User>(users, phash, caller, {user with kinds });
                 ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId,newHousing );
+                ignore Map.put<HousingId, Calendary>(calendars, nhash, lastHousingId, {dayZero= now(); reservedDays=  []});
                 #Ok(lastHousingId)
             }
         }
@@ -382,7 +384,7 @@ shared ({ caller }) actor class Triourism () = this {
 
     func isPublishable(housing: Housing): Bool {
         (housing.prices.size() > 0) and
-        (addressEqual(housing.address, NULL_LOCATION)) and
+        (not addressEqual(housing.address, NULL_LOCATION)) and
         (housing.properties.size() > 0)
     };
 
@@ -396,7 +398,7 @@ shared ({ caller }) actor class Triourism () = this {
                     case null { #Err(msg.NotHousing)};
                     case ( ?housing ) {
                         if(isPublishable(housing)) {
-                            ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with ctive = true});
+                            ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with active = true});
                             #Ok
                         } else {
                             #Err(msg.IsNotpublishable)
@@ -502,6 +504,9 @@ shared ({ caller }) actor class Triourism () = this {
                 if(caller != housing.owner) {
                     return #Err(msg.CallerNotHousingOwner);
                 };
+                if (not isPublishable(housing)) {
+                    return #Err(msg.IsNotpublishable)
+                };
                 ignore Map.put<HousingId, Housing>(housings, nhash, id, {housing with active});
                 #Ok
             }
@@ -534,44 +539,43 @@ shared ({ caller }) actor class Triourism () = this {
                 #Ok
             }
         }
-    
     };
 
     func createHousingType(user: Principal, propertiesOfType: Types.Property): {#Ok; #Err: Text} {
-        let housingTypesMap: HousingTypesMap = 
+        let housingTypesMap: HousingTypesMap =
             switch(Map.get<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, user)){
                 case null {Map.new<Text, {properties: Types.Property; housingIds: [HousingId]}>() };
                 case ( ?map ) { map }
             };
         switch (Map.get<Text, {properties: Types.Property; housingIds: [HousingId]}>(
-            housingTypesMap, 
+            housingTypesMap,
             thash,
             propertiesOfType.nameType)) {
-                case null {
-                    // Creación del nuevo tipo 
-                    ignore Map.put<Text, {properties: Types.Property; housingIds: [HousingId]}>(
-                        housingTypesMap, 
-                        thash,
-                        propertiesOfType.nameType,
-                        {properties = propertiesOfType; housingIds: [HousingId] = []}
-                    );
-                    #Ok
-                };
-                case (_) {
-                    #Err(msg.HousingTypeExist)
-                }
+            case null {
+                // Creación del nuevo tipo 
+                ignore Map.put<Text, {properties: Types.Property; housingIds: [HousingId]}>(
+                    housingTypesMap,
+                    thash,
+                    propertiesOfType.nameType,
+                    {properties = propertiesOfType; housingIds: [HousingId] = []}
+                );
+                #Ok
+            };
+            case (_) {
+                #Err(msg.HousingTypeExist)
+            }
         }
     };
 
     func putHousingType(user: Principal, propertiesOfType: Types.Property, housingId: HousingId ){
-        let housingTypesMap: HousingTypesMap = 
+        let housingTypesMap: HousingTypesMap =
             switch(Map.get<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, user)){
                 case null {Map.new<Text, {properties: Types.Property; housingIds: [HousingId]}>() };
                 case ( ?map ) { map }
             };
-        let housingType: {properties: Types.Property; housingIds: [HousingId]} = 
+        let housingType: {properties: Types.Property; housingIds: [HousingId]} =
             switch (Map.get<Text, {properties: Types.Property; housingIds: [HousingId]}>(
-                housingTypesMap, 
+                housingTypesMap,
                 thash,
                 propertiesOfType.nameType)){
                 case null {{properties = propertiesOfType; housingIds = [housingId]}};
@@ -603,10 +607,10 @@ shared ({ caller }) actor class Triourism () = this {
                         if(caller != housing.owner) {
                             return #Err(msg.CallerNotHousingOwner);
                         };
-                        let createResponse = createHousingType(caller,propertiesOfType);
+                        let createResponse = createHousingType(caller, propertiesOfType);
                         switch createResponse {
                             case (#Ok) {
-                                ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with propertiesOfType});
+                                ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with properties = [propertiesOfType]});
                                 // agregamos la habitacion actual al nuevo tipo creado
                                 putHousingType(caller, propertiesOfType, housingId);
                                 // Clonacion de habitacion segun qty con valores por defecto para las nuevas
@@ -619,20 +623,20 @@ shared ({ caller }) actor class Triourism () = this {
                                         active = false;
                                         propertiesOfType
                                     };
-                                    putHousingType(caller, propertiesOfType, lastHousingId);    
+                                    putHousingType(caller, propertiesOfType, lastHousingId);
                                     ignore Map.put<Principal, User>(users, phash, caller, user );
-                                    ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId,newHousing );
+                                    ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId, newHousing );
 
                                     index += 1;
                                 };
                                 #Ok
                             };
                             case (#Err(msg)) {#Err(msg)}
-                        };         
+                        };
                     }
                 }
             }
-        };   
+        };
     };
 
     public shared ({ caller }) func removeHousingType(housingType: Text): async {#Ok; #Err: Text}{
@@ -686,6 +690,13 @@ shared ({ caller }) actor class Triourism () = this {
         #Ok{
             array = Buffer.toArray<Housing>(bufferHousingPreview);
             hasNext = ((page + 1) * qtyPerPage < values.size())
+        }
+    };
+
+    public shared ({ caller }) func getCalendarById(id: Nat): async {#Ok: Calendary; #Err: Text}{
+        switch (Map.get<HousingId, Calendary>(calendars, nhash, id)) {
+            case null { #Err(msg.NotHousing)};
+            case (?calendar) { #Ok(calendar) }
         }
     };
 
@@ -796,8 +807,10 @@ shared ({ caller }) actor class Triourism () = this {
     };
 
     func updateCalendary(housingId: HousingId, calendary: Calendary): Calendary {
+        print("Actualizando calendario");
         let curranDay = now();
         let pastDays = (curranDay - calendary.dayZero) / (24 * 60 * 60 * 1_000_000_000);
+        print("Dias pasados: " # Int.toText(pastDays));
         if(pastDays > 0){
             var updateArray = Array.filter<Int>(
                 calendary.reservedDays, 
@@ -815,9 +828,14 @@ shared ({ caller }) actor class Triourism () = this {
     };
 
     func checkDisponibility(housingId: HousingId, chechIn: Int, checkOut: Int): Bool {
+        switch (Map.get<HousingId, Housing>(housings, nhash, housingId)) {
+            case (?housing) { if(not housing.active) { return false } };
+            case  _ { return false }
+        };
         switch (Map.get<HousingId, Calendary>(calendars, nhash, housingId)) {
             case null { false };
             case (?calendar) {
+                print("Calendario encontrado");
                 let updatedCalendary = updateCalendary(housingId, calendar);
                 var checkDay = chechIn;
                 while (checkDay <= checkOut) {
@@ -826,6 +844,7 @@ shared ({ caller }) actor class Triourism () = this {
                             return false;
                         };
                     };
+                    checkDay += 1;
                 };
                 return true
             }
@@ -834,6 +853,7 @@ shared ({ caller }) actor class Triourism () = this {
 
     public shared query ({ caller }) func getMyHousingDisponibility({checkIn: Nat; checkOut: Nat; page: Nat}): async ResultHousingPaginate{
         let response = getHousingsPaginateByOwner({owner = caller; page});
+        print(debug_show(response));
         switch response {
             case (#Ok({array; hasNext} )){
                 let bufferResults = Buffer.fromArray<HousingPreview>([]);

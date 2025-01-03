@@ -15,6 +15,7 @@
     "typescript"
   ],
   "scripts": {
+    "deploy-with-content": "chmod +x scripts-sh/deploy-with-content.sh; ./scripts-sh/deploy-with-content.sh",
     "build": "turbo run build",
     "preclean": "turbo run clean",
     "clean": "rm -rf .dfx && rm -rf .turbo && rm -rf node_modules & rm -rf src/declarations"
