@@ -102,7 +102,7 @@ module {
     public type Housing = HousingCreateData and {
         active: Bool;
         id: Nat;
-        prices: [Price];
+        price: ?Price;
         owner: Principal;
         rules: [Rule];
         checkIn: Int;
@@ -173,7 +173,7 @@ module {
         id: Nat;
         address: Location;
         thumbnail: Blob;
-        prices: [Price];
+        price: ?Price;
     };
 
     public type HousingId = Nat;
@@ -189,10 +189,15 @@ module {
     //     #RoomWithSharedSpaces: [Rule]; //Hostels/Pensiones
     // };
 
+    // public type Price = {
+    //     #PerNight: Nat;
+    //     #PerWeek: Nat;
+    //     #CustomPeriod: [{dais: Nat; price: Nat}];
+    // };
+
     public type Price = {
-        #PerNight: Nat;
-        #PerWeek: Nat;
-        #CustomPeriod: [{dais: Nat; price: Nat}];
+        base: Nat; // price per nigth
+        discountTable: [{minimumDays: Nat; discount: Nat}];
     };
 
     // public type Rules = { // Ejemplo de Rule: {key = "Horarios"; value = "Sin ruidos molestos entre las 22:00 y las 8:00"}

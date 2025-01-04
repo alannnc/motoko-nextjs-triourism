@@ -350,7 +350,7 @@ shared ({ caller }) actor class Triourism () = this {
     let defaultHousinValues = {
         active: Bool = false;
         rules: [Types.Rule] = [];
-        prices: [Types.Price] = [];
+        price: ?Types.Price = null;
         checkIn: Nat = 15;
         checkOut: Nat = 12;
         address: Types.Location = NULL_LOCATION;
@@ -383,7 +383,7 @@ shared ({ caller }) actor class Triourism () = this {
     };
 
     func isPublishable(housing: Housing): Bool {
-        (housing.prices.size() > 0) and
+        (housing.price != null) and
         (not addressEqual(housing.address, NULL_LOCATION)) and
         (housing.properties.size() > 0)
     };
@@ -447,7 +447,7 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public shared ({ caller }) func updatePrices({id: HousingId; prices: [Types.Price]}): async  UpdateResult{
+    public shared ({ caller }) func updatePrices({id: HousingId; price_: Types.Price}): async  UpdateResult{
         let housing = Map.get(housings, nhash, id);
         switch housing {
             case null {
@@ -455,7 +455,7 @@ shared ({ caller }) actor class Triourism () = this {
             };
             case (?housing) {
                 if(housing.owner != caller){ return #Err(msg.UnauthorizedCaller) };
-                ignore Map.put<HousingId, Housing>(housings, nhash, id, {housing with prices});
+                ignore Map.put<HousingId, Housing>(housings, nhash, id, {housing with price = ?price_});
                 return #Ok
             };
         } 
@@ -774,7 +774,7 @@ shared ({ caller }) actor class Triourism () = this {
                             id = ids[index];
                             address = housing.address;
                             thumbnail = housing.thumbnail;
-                            prices = housing.prices;
+                            price = housing.price;
                         }
                     )
                 }
