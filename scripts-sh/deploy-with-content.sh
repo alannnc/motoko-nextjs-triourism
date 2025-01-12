@@ -26,19 +26,24 @@ dfx canister call backend createHousing '(record {
 })'
 # Update Prices housing 1
 dfx canister call backend updatePrices '(record {
-  id = 1 : nat;
-  prices = vec {
-    variant { PerNight = 30 : nat };
-    variant { PerWeek = 200 : nat };
-  };
+    id = 1 : nat;
+    price = record {
+      base = 100_000_000 : nat; 
+      discountTable = vec {
+        record { minimumDays = 5 : nat; discount = 5 : nat };
+        record { minimumDays = 10 : nat; discount = 15 : nat };
+      };
+    }
 })'
+
+
 
 #Assing housing Type
 
-dfx canister call backend assignHousingType '(record {
+dfx canister call backend cloneHousingWithProperties '(record {
   housingId = 1 : nat;
   qty = 1 : nat;
-  propertiesOfType = record {
+  housingTypeInit = record {
     extraGuest = 2 : nat;
     bathroom = record {
       shower = true;
@@ -66,11 +71,6 @@ dfx canister call backend setAddress '(record {
     country = "Argentina";
     zipCode = 7600 ;
   };
-})'
-
-dfx canister call backend setHousingStatus '(record {
-  id = 1 : nat;
-  active = true;
 })'
 
 dfx canister call backend publishHousing 1

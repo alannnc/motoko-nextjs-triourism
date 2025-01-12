@@ -6,118 +6,126 @@ import Principal "mo:base/Principal";
 import Buffer "mo:base/Buffer";
 import Blob "mo:base/Blob";
 import Types "types";
-// import Int "mo:base/Int";
 import { now } "mo:base/Time";
-// import Rand "mo:random/Rand";
 import msg "constants";
-
-////////////// Debug imports ////////////////
 import { print } "mo:base/Debug";
 import Array "mo:base/Array";
-import Iter "mo:base/Iter";
 import Int "mo:base/Int";
- 
+import List "mo:base/List";
+import Nat "mo:base/Nat";
+import Nat8 "mo:base/Nat8";
+import Nat64 "mo:base/Nat64";
+import Indexer_icp "./indexer_icp_token";
+import AccountIdentifier "mo:account-identifier";
+
 shared ({ caller }) actor class Triourism () = this {
 
     type User = Types.User;
-    type UserKind = Types.UserKind;
+    type HostUser =Types.HostUser;
+    type UserData = Types.UserData;
     type SignUpResult = Types.SignUpResult;
-    type CalendaryPart = Types.CalendaryPart;
-    type Calendary = {dayZero: Int; reservedDays: [Int]};
-    type ReservationDataInput = Types.ReservationDataInput;
+    type Calendary = Types.Calendary;
     type Reservation = Types.Reservation;
-    type HousingId = Types.HousingId;
-    // type HousingDataInit = Types.HousingDataInit;
+    type HousingId = Nat;
+    type ReviewId = Nat;
+    type Review = Types.Review;
     type Housing = Types.Housing;
+    type HousingTypeInit = Types.HousingTypeInit;
+    type HousingType = Types.HousingType;
     type HousingResponse = Types.HousingResponse;
     type HousingPreview = Types.HousingPreview;
     type HousingCreateData = Types.HousingCreateData;
-    type HousingTypesMap = Map.Map<Text, {properties: Types.Property; housingIds: [HousingId]}>;
+    type TransactionParams = Types.TransactionParams;
+    type DataTransaction = Types.DataTransaction;
+    type TransactionResponse = Types.TransactionResponse;
 
     type UpdateResult = Types.UpdateResult;
     type ResultHousingPaginate = {#Ok: {array: [HousingPreview]; hasNext: Bool}; #Err: Text};
-    type PublishResult = {#Ok: HousingId; #Err: Text};
-
-    type ReservationResult = {
-        #Ok: {
-            reservationId: Nat;
-            msg: Text;   
-        };
-        #Err: Text;        
-    };
-
-    // TODO revisar day, actualemnte es el timestamp de una hora especifica que delimita el comienzo del dia 
     
   
     stable let DEPLOYER = caller;
-    // let NANO_SEG_PER_HOUR = 60 * 60 * 1_000_000_000;
-    // let ramdomGenerator = Rand.Rand();
 
-    // stable var minReservationLeadTime = 24 * 60 * 60 * 1_000_000_000; // 24 horas en nanosegundos
-    
+    // /////////////// WARNING modificar estas variables en produccion a los valores reales  ////
+    let nanoSecPerDay = 40 * 1_000_000_000;             // Test Transcurso acelerado de los dias
+    // let nanoSecPerDay = 86400 * 1_000_000_000;       // Valor real de nanosegundos en un dia
+    stable var TimeToPay = 20 * 1_000_000_000;          // Tiempo en nanosegundos para confirmar la reserva mediante pago
+    // stable var TimeToPay = 30 * 60 * 1_000_000_000;  // Tiempo sugerido 30 minutos
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+     
     stable let admins = Set.new<Principal>();
     ignore Set.put<Principal>(admins, phash, caller);
+
     stable let users = Map.new<Principal, User>();
+    stable let hostUsers = Map.new<Principal, HostUser>();
+
     stable let housings = Map.new<HousingId, Housing>();
-    stable let housingTypesByHostOwner = Map.new<Principal, HousingTypesMap>();
-    stable let calendars = Map.new<HousingId, Calendary>();
-    stable let reservationsRequests = Map.new<HousingId, Reservation>();
-    stable let reservationsConfirmed = Map.new<HousingId, Reservation>();
+    stable let review = Map.new<ReviewId, Review>();
 
-    stable var lastHousingId = 0;
+    stable let reservationsPendingConfirmation = Map.new<Nat, Reservation>();
+    stable let reservationsHistory = Map.new<Nat, Reservation>();
     
+    stable var lastHousingId = 0;
+    stable var lastReviewId = 0;
+    stable var lastReservationId = 0;
+    
+    ///////////////////////////////////// Login Update functions ////////////////////////////////////////
 
-  ///////////////////////////////////// Update functions ////////////////////////////////////////
+    public shared ({ caller }) func signUpAsUser(data: Types.SignUpData) : async SignUpResult {
+        if(Principal.isAnonymous(caller)) { return #Err(msg.NotUser) };
 
-    private func _safeSignUp(p: Principal, data: Types.SignUpData, kind: UserKind): SignUpResult {
-        if(Principal.isAnonymous(p)){
-            return #Err(msg.NotUser)
-        };
-        let user = Map.get(users, phash, p);
+        let user = Map.get(users, phash, caller);
         switch user {
             case (?User) { #Err("User already exists") };
             case null {
                 let newUser: User = {
                     data with
-                    kinds: [UserKind] = [kind];
                     verified = true;
+                    reviewsIssued = List.nil<Nat>();
                     score = 0;
                 };
-                ignore Map.put(users, phash, p, newUser);
-                #Ok(newUser);
+                ignore Map.put(users, phash, caller, newUser);
+                #Ok( newUser );
             };
         };
     };
 
-    public shared ({ caller }) func signUp(data: Types.SignUpData) : async SignUpResult {
-        _safeSignUp(caller, data, #Initial)
-    };
-
     public shared ({ caller }) func signUpAsHost(data: Types.SignUpData) : async SignUpResult {
-        _safeSignUp(caller, data, #Host([]));
-
+        if(Principal.isAnonymous(caller)) { return #Err(msg.NotUser) };
+        let hostUser = Map.get(hostUsers, phash, caller);
+        switch hostUser {
+            case (?User) { #Err("Host User already exists") };
+            case null {
+                let newHostUser: HostUser = {
+                    data with
+                    verified = true;
+                    score = 0;
+                    housingIds = List.nil<Nat>();
+                    housingTypes =  Map.new<Text, HousingType>();
+                };
+                ignore Map.put(hostUsers, phash, caller, newHostUser);
+                #Ok(newHostUser);
+            };
+        };
     };
 
-    public shared query ({ caller }) func logIn(): async {#Ok: User; #Err} {
-        let user = Map.get<Principal, User>(users, phash, caller);
+    public shared query ({ caller }) func loginAsUser(): async {#Ok: UserData; #Err} {
+        let user = Map.get<Principal, User>(users, phash, caller); 
         switch user {
-            case null { #Err };
+            case null { #Err() };
             case ( ?u ) { #Ok(u)}
         };
     };
 
-    //////////////////////////////// CRUD Data User ///////////////////////////////////
+    public shared query ({ caller }) func loginAsHost(): async {#Ok: UserData; #Err} {
+        let hostUser = Map.get<Principal, HostUser>(hostUsers, phash, caller); 
+        switch hostUser {
+            case null { #Err() };
+            case ( ?u ) { #Ok(u)}
+        };
+    };
 
-    // public shared ({ caller }) func loadAvatar(avatar: Blob): async {#Ok; #Err: Text} {
-    //     let user = Map.get<Principal, User>(users, phash, caller);
-    //     switch user {
-    //         case null {#Err(msg.NotUser)};
-    //         case(?user) {
-    //             ignore Map.put<Principal, User>(users, phash, caller, {user with avatar = ?avatar});
-    //             #Ok
-    //         }
-    //     }
-    // };
+
+    //////////////////////////////// CRUD Data User ///////////////////////////////////
 
     public shared ({ caller }) func editProfile(data: Types.SignUpData): async {#Ok; #Err}{
         let user = Map.get<Principal, User>(users, phash, caller);
@@ -130,204 +138,8 @@ shared ({ caller }) actor class Triourism () = this {
         };
     };
 
-    // TODO
-    ///////////////////////////////////////////////////////////////////////////////////
-
-  ///////////////////////////// Private functions ///////////////////////////////////
+    ///////////////////////////// Private functions ///////////////////////////////////
     func isAdmin(p: Principal): Bool { Set.has<Principal>(admins, phash, p) };
-
-    func isUser(p: Principal): Bool { Map.has<Principal, User>(users, phash, p)};
-
-    // func initCalendary(): [var CalendaryPart]{
-    //     Prim.Array_init<CalendaryPart>(
-    //         30,
-    //         {day= 0; available = true; reservation = null}
-    //     )
-    // };
-
-    // func freezeCalendar(c: [var CalendaryPart]): [CalendaryPart]{
-    //     Prim.Array_tabulate<CalendaryPart>(c.size(), func i = c[i])
-    // };
-
-    // func updateCalendar(c: [var CalendaryPart]): [var CalendaryPart] {
-    //     var indexDay = 0;
-    //     var displace = 0;
-    //     while(indexDay < c.size() and now() + NANO_SEG_PER_HOUR * 24 > c[indexDay].day){
-    //         displace += 1;
-    //         indexDay += 1;
-    //     };
-    //     let outPutArray = c;
-    //     var index = 0;
-    //     while(index + displace < c.size()){
-    //         outPutArray[index] := c[index + displace];
-    //         outPutArray[index + displace] := {day =  0; available = true; reservation = null};
-    //         index += 1;
-    //     };
-    //     outPutArray;
-    // };
-
-    // func intToNat(x: Int): Nat{
-    //     Prim.nat64ToNat(Prim.intToNat64Wrap(x))
-    // };
-    /////////// Probar ////////////
-    // func insertReservationToCalendar(_calendar: [var CalendaryPart], reserv: Reservation): {#Ok: [var CalendaryPart]; #Err } {
-    //     let calendar = updateCalendar(_calendar); // Asegura que el primer elemento sea el día actual
-    //     let checkInDay = intToNat((reserv.checkIn - now()) / (24 * NANO_SEG_PER_HOUR));
-    //     let daysQty = intToNat((reserv.checkOut - reserv.checkIn) / (24 * NANO_SEG_PER_HOUR));
-    //     var index = checkInDay;
-    //     var okBaby = true;
-        
-    //     // Comprobar disponibilidad
-    //     while (index < checkInDay + daysQty and index < calendar.size()) {
-    //         if (not calendar[index].available) { 
-    //             okBaby := false;
-    //             index += daysQty; // Salir del bucle si no está disponible
-    //         } else {
-    //             index += 1;
-    //         }
-    //     };
-
-    //     if (okBaby) {
-    //         index := checkInDay;
-    //         while (index < checkInDay + daysQty and index < calendar.size()) {
-    //             let calendaryPart: CalendaryPart = { 
-    //                 reservation = ?reserv;
-    //                 day = index * 24 * NANO_SEG_PER_HOUR;
-    //                 available = false;
-    //             };
-    //             calendar[index] := calendaryPart;
-    //             index += 1;
-    //         };
-    //         #Ok(calendar)
-    //     } else {
-    //         #Err
-    //     }
-    // };
-
-  /////////////////////////// Manage admins functions /////////////////////////////////
-
-    public shared ({ caller }) func addAdmin(p: Principal): async  {#Ok; #Err} {
-        if(not isAdmin(caller)){ 
-            #Err
-        } else{
-            ignore Set.put<Principal>(admins, phash, p);
-            #Ok
-        }
-    };
-
-    public shared ({ caller }) func removeAdmin(p: Principal): async {#Ok; #Err} {
-        if(caller != DEPLOYER){
-            #Err;
-        } else {
-            ignore Set.remove<Principal>(admins, phash, p);
-            #Ok
-        } 
-    };
-
-  /////////////////////////// Admin functions ////////////////////////////////////////////// 
-  /////////////////////////////// Verification process /////////////////////////////////////
-    // TODO actualmente todos los usuarios se inicializan como verificados
-
-    // func userIsVerificated(u: Principal): Bool {
-    //     let user = Map.get<Principal,User>(users, phash, u);
-    //     switch user{
-    //         case null { false };
-    //         case (?user) { user.verified};
-    //     };
-    // };
-
-  //////////////////////////////// CRUD Housing ////////////////////////////////////////////
-
-    // public shared ({ caller }) func publishHousingOld(data: HousingDataInit): async PublishResult {     
-    //     let user = Map.get<Principal, User>(users, phash, caller);
-    //     switch user {
-    //         case null {
-    //             return #Err(msg.NotUser);
-    //         };
-    //         case (?user){
-    //             if(not userIsVerificated(caller)){
-    //                 return #Err(msg.NotVerifiedUser);
-    //             };
-    //             lastHousingId += 1;
-    //             let newHousing: Housing = { data with
-    //                 reservationRequests = Map.new<Nat, Reservation>();
-    //                 owner = caller;
-    //                 id = lastHousingId;
-    //                 calendar: [var CalendaryPart] = initCalendary();
-    //                 photos: [Blob] = [];
-    //                 thumbnail: Blob = "";
-    //             };
-    //             var updateHousingArray: [HousingId] = [];
-    //             var notPrevious = true;
-    //             var position = 0;
-    //             var i = 0;
-    //             while(i < user.userKind.size()){
-    //                 switch (user.userKind[i]){
-    //                     case(#Host(housingIdArray)){
-    //                         notPrevious := false;
-    //                         position := i;
-    //                         updateHousingArray := Prim.Array_tabulate<HousingId>( 
-    //                             housingIdArray.size() + 1,
-    //                             func x {
-    //                                 if(x != housingIdArray.size()){
-    //                                    housingIdArray[x];
-    //                                 }
-    //                                 else {newHousing.id}
-    //                             }
-    //                         )
-    //                     };
-    //                     case(_){};
-    //                 };
-    //                 i += 1;
-    //             };
-    //             if(notPrevious){ updateHousingArray := [newHousing.id] };
-    //             let updateKinds = Prim.Array_tabulate<UserKind>(
-    //                 user.userKind.size() + (if(notPrevious){ 1 } else { 0 }),
-    //                 func i { if(i == position) {
-    //                         #Host(updateHousingArray)
-    //                     }
-    //                     else {
-    //                         user.userKind[i]
-    //                     }
-    //                 }
-    //             );
-    //             ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId, newHousing);
-    //             ignore Map.put<Principal,User>(users, phash, caller, {user with userKind = updateKinds});
-    //             return #Ok(newHousing.id)
-    //         }
-    //     };
-    // };
-
-    func isHostUser(p: Principal): Bool {
-        let user = Map.get<Principal, User>(users, phash, p);
-        switch user {
-            case null { false };
-            case (?user) {
-                for (kind in user.kinds.vals()) {
-                    switch kind {
-                        case (#Host(_)) { return true };
-                        case _ {}
-                    };
-                };
-                return false
-            }
-        }
-    };
-
-    func addIdToHostKind(arr: [Types.UserKind], id: HousingId): [Types.UserKind]{
-        let bufferKinds = Buffer.fromArray<Types.UserKind>([]);
-        for (k in arr.vals()) {
-            switch k {
-                case (#Host(ids)){
-                    let setIds = Set.fromIter<HousingId>(ids.vals(), nhash);
-                    ignore Set.put<HousingId>(setIds, nhash, id);
-                    bufferKinds.add(#Host(Set.toArray(setIds)))
-                };
-                case (k) {bufferKinds.add(k)}
-            };
-        };
-        Buffer.toArray<Types.UserKind>(bufferKinds);
-    };
 
     func addressEqual(a: Types.Location, b: Types.Location ) : Bool {
         a.country == b.country and
@@ -354,29 +166,64 @@ shared ({ caller }) actor class Triourism () = this {
         checkIn: Nat = 15;
         checkOut: Nat = 12;
         address: Types.Location = NULL_LOCATION;
-        properties: [Types.Property] = [];
+        properties: ?HousingType = null;
+        housingType: ?Text = null;
         amenities = null;
-        calendar: [var Types.CalendaryPart] = [var];
+        reviews = List.nil<Nat>();
     };
 
-    public shared ({ caller }) func createHousing(dataInit: HousingCreateData): async {#Ok: Nat; #Err: Text} {
-        let user = Map.get<Principal, User>(users, phash, caller);
-        switch user {
-            case null {#Err(msg.NotUser)};
-            case (?user) {
-                if (not isHostUser(caller)) { return #Err(msg.NotHostUser)};
-                lastHousingId += 1;
+    /////////////////////////// Manage admins functions /////////////////////////////////
 
+    public shared ({ caller }) func addAdmin(p: Principal): async  {#Ok; #Err} {
+        if(not isAdmin(caller)){ 
+            #Err
+        } else{
+            ignore Set.put<Principal>(admins, phash, p);
+            #Ok
+        }
+    };
+
+    public shared ({ caller }) func removeAdmin(p: Principal): async {#Ok; #Err} {
+        if(caller != DEPLOYER){
+            #Err;
+        } else {
+            ignore Set.remove<Principal>(admins, phash, p);
+            #Ok
+        } 
+    };
+   
+    /////////////////////////// Admin functions ////////////////////////////////////////////// 
+    /////////////////////////////// Verification process /////////////////////////////////////
+    // TODO actualmente todos los usuarios se inicializan como verificados
+
+    // func userIsVerificated(u: Principal): Bool {
+    //     let user = Map.get<Principal,User>(users, phash, u);
+    //     switch user{
+    //         case null { false };
+    //         case (?user) { user.verified};
+    //     };
+    // };
+
+    //////////////////////////////// CRUD Housing ////////////////////////////////////////////
+
+    public shared ({ caller }) func createHousing(dataInit: HousingCreateData): async {#Ok: Nat; #Err: Text} {
+        let hostUser = Map.get<Principal, HostUser>(hostUsers, phash, caller);
+        switch hostUser {
+            case null {#Err(msg.NotHostUser)};
+            case (?hostUser) {
+
+                lastHousingId += 1;
                 let newHousing: Housing = {
                     dataInit and 
                     defaultHousinValues with
-                    id = lastHousingId;
+                    housingId = lastHousingId;
                     owner = caller;
+                    calendary = {dayZero = now(); reservations = []};
+                    reservationsPending = [];
                 };
-                let kinds = addIdToHostKind(user.kinds, lastHousingId);
-                ignore Map.put<Principal, User>(users, phash, caller, {user with kinds });
-                ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId,newHousing );
-                ignore Map.put<HousingId, Calendary>(calendars, nhash, lastHousingId, {dayZero= now(); reservedDays=  []});
+                let housingIdsUser =  List.push<Nat>(lastHousingId, hostUser.housingIds);
+                ignore Map.put<Principal, HostUser>(hostUsers, phash, caller, {hostUser with housingIds = housingIdsUser});
+                ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId, newHousing );
                 #Ok(lastHousingId)
             }
         }
@@ -385,18 +232,19 @@ shared ({ caller }) actor class Triourism () = this {
     func isPublishable(housing: Housing): Bool {
         (housing.price != null) and
         (not addressEqual(housing.address, NULL_LOCATION)) and
-        (housing.properties.size() > 0)
+        (housing.properties != null)
     };
 
     public shared ({ caller }) func publishHousing(housingId: HousingId): async {#Ok; #Err: Text}{
-        let user = Map.get<Principal, User>(users, phash, caller);
-        switch user {
+        let hostUser = Map.get<Principal, HostUser>(hostUsers, phash, caller);
+        switch hostUser {
             case null { #Err(msg.NotUser)};
-            case ( ?user ) {
+            case ( ?hostUser ) {
                 let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
                 switch housing {
                     case null { #Err(msg.NotHousing)};
                     case ( ?housing ) {
+                        if(housing.owner != caller) { return #Err(msg.CallerNotHousingOwner)};
                         if(isPublishable(housing)) {
                             ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with active = true});
                             #Ok
@@ -540,121 +388,83 @@ shared ({ caller }) actor class Triourism () = this {
             }
         }
     };
-
-    func createHousingType(user: Principal, propertiesOfType: Types.Property): {#Ok; #Err: Text} {
-        let housingTypesMap: HousingTypesMap =
-            switch(Map.get<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, user)){
-                case null {Map.new<Text, {properties: Types.Property; housingIds: [HousingId]}>() };
-                case ( ?map ) { map }
-            };
-        switch (Map.get<Text, {properties: Types.Property; housingIds: [HousingId]}>(
-            housingTypesMap,
-            thash,
-            propertiesOfType.nameType)) {
-            case null {
-                // Creación del nuevo tipo 
-                ignore Map.put<Text, {properties: Types.Property; housingIds: [HousingId]}>(
-                    housingTypesMap,
-                    thash,
-                    propertiesOfType.nameType,
-                    {properties = propertiesOfType; housingIds: [HousingId] = []}
-                );
-                ignore Map.put<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, user, housingTypesMap);
-                #Ok
-            };
-            case (_) {
-                #Err(msg.HousingTypeExist)
-            }
-        }
-    };
-
-    func putHousingType(user: Principal, propertiesOfType: Types.Property, housingId: HousingId ){
-        let housingTypesMap: HousingTypesMap =
-            switch(Map.get<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, user)){
-                case null {Map.new<Text, {properties: Types.Property; housingIds: [HousingId]}>() };
-                case ( ?map ) { map }
-            };
-        let housingType: {properties: Types.Property; housingIds: [HousingId]} =
-            switch (Map.get<Text, {properties: Types.Property; housingIds: [HousingId]}>(
-                housingTypesMap,
-                thash,
-                propertiesOfType.nameType)){
-                case null {{properties = propertiesOfType; housingIds = [housingId]}};
-                case (?housingType) {
-                    let housingIds= Prim.Array_tabulate<HousingId>(
-                        housingType.housingIds.size() + 1,
-                        func x = if(x == 0) { housingId } else { housingType.housingIds[x - 1] }
-                    );
-                    {properties = propertiesOfType; housingIds}
-                }
-            };
-        ignore Map.put<Text, {properties: Types.Property; housingIds: [HousingId]}>(
-            housingTypesMap, thash, propertiesOfType.nameType, housingType
-        );
-
-    };
     
-    public shared ({ caller }) func assignHousingType({housingId: HousingId; qty: Nat; propertiesOfType: Types.Property}): async {#Ok; #Err: Text} {
+    public shared ({ caller }) func cloneHousingWithProperties({housingId: HousingId; qty: Nat; housingTypeInit: HousingTypeInit}): async {#Ok; #Err: Text} {
         
-        let user = Map.get<Principal, User>(users, phash, caller);
-        switch user {
-            case null {return #Err(msg.NotUser)};
-            case ( ?user ) {
-                if (qty < 1) { return #Err(msg.ZeroIsNotAllowed)};
+        let hostUser = Map.get<Principal, HostUser>(hostUsers, phash, caller);
+        switch hostUser {
+            case null {
+                return #Err(msg.NotHostUser)
+            };
+            case ( ?hostUser ) {
+                if (Map.has<Text, HousingType>(hostUser.housingTypes, thash, housingTypeInit.nameType)) {
+                    return #Err(msg.HousingTypeExist)
+                };
                 let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
                 switch housing {
-                    case null { #Err(msg.NotHousing)};
+                    case ( null ) { return #Err(msg.NotHousing)};
                     case ( ?housing ) {
-                        if(caller != housing.owner) {
-                            return #Err(msg.CallerNotHousingOwner);
+                        if(housing.owner != caller) { 
+                            return #Err(msg.CallerNotHousingOwner)
                         };
-                        let createResponse = createHousingType(caller, propertiesOfType);
-                        switch createResponse {
-                            case (#Ok) {
-                                ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with properties = [propertiesOfType]});
-                                // agregamos la habitacion actual al nuevo tipo creado
-                                putHousingType(caller, propertiesOfType, housingId);
-                                // Clonacion de habitacion segun qty con valores por defecto para las nuevas
-                                var index = 1; // la habitacion a partir de la que se define el tipo no se cuenta porque ya tiene su propio id
-                                while (index < qty ){
-                                    lastHousingId += 1;
-                                    let newHousing: Housing = {
-                                        housing with
-                                        id = lastHousingId;
-                                        active = false;
-                                        propertiesOfType
-                                    };
-                                    putHousingType(caller, propertiesOfType, lastHousingId);
-                                    ignore Map.put<Principal, User>(users, phash, caller, user );
-                                    ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId, newHousing );
+                        //Establecemos el tipo al housing a clonar
+                        let housingType: HousingType =  {housingTypeInit with housingIds: [HousingId] = []};
+                        ignore Map.put<HousingId, Housing>(
+                            housings, 
+                            nhash, 
+                            housingId, 
+                            { housing with properties = ?housingType; housingType = ?housingTypeInit.nameType});
 
-                                    index += 1;
-                                };
-                                #Ok
+                        var i = qty;
+                        var housingIdsOfThisType = Buffer.fromArray<Nat>([housingId]);
+                        while (i > 0) {
+                            lastHousingId += 1;
+                            housingIdsOfThisType.add(lastHousingId);
+
+                            let newHousing: Housing = {
+                                defaultHousinValues with
+                                owner = caller;
+                                housingId = lastHousingId;
+                                namePlace = housing.namePlace;
+                                nameHost = housing.nameHost;
+                                descriptionPlace = housing.descriptionPlace;
+                                descriptionHost = housing.descriptionHost;
+                                link = housing.link;
+                                photos = [];
+                                properties = null;
+                                housingType = ?housingTypeInit.nameType;
+                                thumbnail = housing.thumbnail;
+                                calendary = {dayZero = now(); reservations = []};
+                                reservationsPending = [];
                             };
-                            case (#Err(msg)) {#Err(msg)}
+                            ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId,  newHousing );
+                            i -= 1;
                         };
+                        let housingIds = Buffer.toArray<Nat>(housingIdsOfThisType);
+                        ignore Map.put<Text, HousingType>(hostUser.housingTypes, thash, housingType.nameType, {housingType with housingIds});
+                        #Ok
                     }
-                }
+                };    
             }
         };
     };
+    
 
-    public shared ({ caller }) func removeHousingType(housingType: Text): async {#Ok; #Err: Text}{
-        let myHousingTypesMap = Map.get<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, caller);
-        switch myHousingTypesMap {
-            case null {#Err("Not housing types")};
-            case (?housingTypesMap){
-                let removedType = Map.remove<Text, {properties: Types.Property; housingIds: [HousingId]}>(
-                    housingTypesMap, thash, housingType
-                );
-                switch removedType {
-                    case null { #Err("Not housing type")};
-                    case (?removedType) {#Ok}
-                }
-            }  
-        }
-    };
+    // public shared ({ caller }) func removeHousingType(housingType: Text): async {#Ok; #Err: Text}{
+    //     let myHousingTypesMap = Map.get<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, caller);
+    //     switch myHousingTypesMap {
+    //         case null {#Err("Not housing types")};
+    //         case (?housingTypesMap){
+    //             let removedType = Map.remove<Text, {properties: Types.HousingType; housingIds: [HousingId]}>(
+    //                 housingTypesMap, thash, housingType
+    //             );
+    //             switch removedType {
+    //                 case null { #Err("Not housing type")};
+    //                 case (?removedType) {#Ok}
+    //             }
+    //         }  
+    //     }
+    // };
 
     public shared ({ caller }) func setAmenities(amenities: Types.Amenities, housingId: HousingId): async {#Ok; #Err: Text}{
        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
@@ -674,7 +484,7 @@ shared ({ caller }) actor class Triourism () = this {
         } 
     };
     
-  ///////////////////////////////////////// Getters ////////////////////////////////////////
+    ///////////////////////////////////////// Getters ////////////////////////////////////////
 
     public query func getHousingPaginate({page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate {
         if(Map.size(housings) < page * qtyPerPage){
@@ -689,20 +499,20 @@ shared ({ caller }) actor class Triourism () = this {
             };
             index += 1;
         };
+        let array = Buffer.toArray<Housing>(bufferHousingPreview);
         #Ok{
-            array = Buffer.toArray<Housing>(bufferHousingPreview);
-            hasNext = ((page + 1) * qtyPerPage < values.size())
+            array;
+            hasNext = ((page + 1) * qtyPerPage < array.size())
         }
     };
 
     public shared query ({ caller }) func getCalendarById(id: Nat): async {#Ok: Calendary; #Err: Text}{
+        //agregar lista de marcados como pendientes de verificacion
         switch (Map.get<HousingId, Housing>(housings, nhash, id)) {
             case (?housing) { 
                 if(housing.active) {
-                    switch (Map.get<HousingId, Calendary>(calendars, nhash, id)) {
-                        case null { return #Err(msg.NotHousing)};    
-                        case (?calendar) { return #Ok(calendar) }
-                    }
+                    let calendary = updateCalendary(id);
+                    #Ok(calendary)
                 } else {
                     return #Err(msg.InactiveHousing)
                 }
@@ -712,22 +522,28 @@ shared ({ caller }) actor class Triourism () = this {
         
     };
 
-    public query func getHousingById({housingId: HousingId;  photoIndex: Nat}): async {#Ok: HousingResponse; #Err: Text} {
+    public func getHousingById({housingId: HousingId;  photoIndex: Nat}): async {#Ok: HousingResponse; #Err: Text} {
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
+        
         return switch housing {
             case null { #Err(msg.NotHousing)};
             case (?housing) {
+                let reservationsPending = cleanPendingVerifications(housingId, housing.reservationsPending);
                 if(not housing.active and housing.owner != caller) {
                     return #Err(msg.InactiveHousing)
                 };
+                let calendary = updateCalendary(housingId);
                 if(photoIndex == 0){
                     let housingResponse: HousingResponse = #Start({
                         housing with
+                        reservationsPending;
+                        calendary;  
                         photos = if(housing.photos.size() > 0) { [housing.photos[0]] } else { [] };
                         hasNextPhoto = (housing.photos.size() > photoIndex + 1)
                     });
                     #Ok(housingResponse);
                 } else {
+                    if (photoIndex >= housing.photos.size()) { return #Err(msg.PaginationOutOfRange)};
                     let housingResponse: HousingResponse = #OnlyPhoto({
                         photo = housing.photos[photoIndex];
                         hasNextPhoto = (housing.photos.size() > photoIndex + 1)
@@ -739,24 +555,32 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-  //TODO servicio que devuelva los tipos 
+    public shared ({ caller }) func getMyHousingTypes(): async {#Ok: [{typeName: Text; housingIds: [Nat]}]; #Err: Text}{
+        let hostUser = Map.get<Principal, HostUser>(hostUsers, phash, caller);
+        switch hostUser {
+            case null {#Err(msg.NotHostUser)};
+            case (?hostUser) {
+                #Ok(
+                    Array.map<(Text, HousingType),{ typeName: Text; housingIds: [Nat]} >(
+                        Map.toArray<Text, HousingType>(hostUser.housingTypes),
+                        func x = {typeName = x.0; housingIds = x.1.housingIds}
+                    ) 
+                )           
+            };
+        }
+    };
 
     public shared query ({ caller }) func getMyHousingsByType({housingType: Text; page: Nat}): async ResultHousingPaginate{
-        let housingTypeMap = Map.get<Principal, HousingTypesMap>(housingTypesByHostOwner, phash, caller);
-        switch housingTypeMap {
-            case null {#Err("Not Housing Types")};
-            case (?map) {
-                let housingsType = Map.get<Text, {properties: Types.Property; housingIds: [HousingId]}>(
-                    map,
-                    thash,
-                    housingType
-                );
-                switch housingsType {
-                    case null { #Err("Not housing type")};
-                    case (?housingType) {
+        let hostUser = Map.get<Principal, HostUser>(hostUsers, phash, caller);
+        switch hostUser {
+            case null {#Err(msg.NotHostUser)};
+            case (?hostUser) {
+                switch (Map.get<Text, HousingType>(hostUser.housingTypes, thash, housingType)){
+                    case null { return #Err(msg.HousingTypeNoExist)};
+                    case ( ?housingType ) {
                         getPaginateHousings(housingType.housingIds, page)
                     }
-                }
+                }           
             };
         }
     };
@@ -771,7 +595,7 @@ shared ({ caller }) actor class Triourism () = this {
                     resultBuffer.add( 
                         { 
                             active = housing.active;
-                            id = ids[index];
+                            housingId = ids[index];
                             address = housing.address;
                             thumbnail = housing.thumbnail;
                             price = housing.price;
@@ -785,99 +609,216 @@ shared ({ caller }) actor class Triourism () = this {
         #Ok({array = Buffer.toArray<HousingPreview>(resultBuffer); hasNext: Bool});
     };
 
-    func getHousingsPaginateByOwner({owner: Principal; page: Nat}): ResultHousingPaginate {
-        let user = Map.get<Principal, User>(users, phash, owner);
-        switch user {
-            case null { #Err("There is no user associated with the caller")};
-            case ( ?user ) {
-                for( k in user.kinds.vals()){
-                    switch k {
-                        case (#Host(hostIds)) {
-                            let bufferHousingreview = Buffer.fromArray<HousingPreview>([]);
-                            var index = page * 10;
-                            while(index < hostIds.size() and index < 10 * (page + 1)){
-                                let housing = Map.get<Nat, Housing>(housings, nhash, hostIds[index]);
-                                switch housing {
-                                    case null{ };
-                                    case ( ?housing ) {
-                                        let prev: HousingPreview = housing;
-                                        bufferHousingreview.add(prev);
-                                    }
-                                };          
-                                index += 1;
-                            };
-                            return #Ok({array = Buffer.toArray<HousingPreview>(bufferHousingreview); hasNext = hostIds.size() > 10 * (page +1)})
+    func getHousingsPaginateByOwner(owner: Principal, page: Nat, qtyPerPage: Nat, onlyActives: Bool): ResultHousingPaginate {
+        let hostUser = Map.get<Principal, HostUser>(hostUsers, phash, owner);
+
+        switch hostUser {
+            case null { #Err(msg.NotHostUser)};
+            case ( ?hostUser ) { 
+                // let housingArray = List.toArray<HousingId>(hostUser.housingIds);
+                let housingPreviewBuffer = Buffer.fromArray<HousingPreview>([]);
+                for(id in List.toIter(hostUser.housingIds)){
+                    switch (Map.get<HousingId, Housing>(housings, nhash, id)){
+                        case (?housing) {
+                            if(not onlyActives or housing.active){
+                               housingPreviewBuffer.add(housing) 
+                            } 
                         };
-                        case _ {};
-                    }
+                        case _ { }
+                    };
                 };
-                #Err("The user is not a hosting type user")
+                let arrayHousingPreview = Buffer.toArray(housingPreviewBuffer);
+                if ( arrayHousingPreview.size() < page * qtyPerPage){
+                    return #Err(msg.PaginationOutOfRange);
+                };
+                let (size: Nat, hasNext: Bool) = if (arrayHousingPreview.size() >= (page + 1)  * qtyPerPage){
+                    (qtyPerPage, arrayHousingPreview.size() > (page + 1))
+                } else {
+                    (arrayHousingPreview.size() % qtyPerPage, false)
+                };
+                return #Ok({array = Array.subArray(arrayHousingPreview, page * qtyPerPage, size); hasNext : Bool})
+
             }
         }
     };
 
-    public shared query ({ caller }) func getMyHousingsPaginate({page: Nat}): async ResultHousingPaginate{
-        getHousingsPaginateByOwner({owner = caller; page})
+    public shared query ({ caller }) func getMyHousingsPaginate({page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate{
+        getHousingsPaginateByOwner(caller, page, qtyPerPage, false)
     };
 
-    func updateCalendary(housingId: HousingId, calendary: Calendary): Calendary {
-        print("Actualizando calendario");
-        let curranDay = now();
-        let pastDays = (curranDay - calendary.dayZero) / (24 * 60 * 60 * 1_000_000_000);
-        print("Dias pasados: " # Int.toText(pastDays));
-        if(pastDays > 0){
-            var updateArray = Array.filter<Int>(
-                calendary.reservedDays, 
-                func(x: Int): Bool {x > pastDays}
-            );
-            updateArray := Prim.Array_tabulate<Int>(
-                updateArray.size(),
-                func (x: Nat) = updateArray[x] - pastDays
-            );
-            let updateCalendar = {dayZero = curranDay; reservedDays = updateArray};
-            ignore Map.put<HousingId, Calendary>(calendars, nhash, housingId, updateCalendar);
-            return updateCalendar;
+    public shared query ({ caller }) func getMyActiveHousings({page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate{
+        getHousingsPaginateByOwner(caller, page, qtyPerPage, true)
+        
+    };
+
+    public shared query func getHousingByHostUser({host: Principal; page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate{
+        getHousingsPaginateByOwner(host, page, qtyPerPage, true)
+    };
+
+    func updateCalendary(housingId: HousingId): Calendary {
+        switch (Map.get<HousingId, Housing>(housings, nhash, housingId)){
+            case null {assert false; {dayZero = 0; reservations = []}};
+            case ( ?housing ) {
+                let startOfCurrentDayGMT = now() - now() % nanoSecPerDay ; // Timestamp inicio del dia actual en GTM + 0
+                let daysSinceLastUpdate = (startOfCurrentDayGMT - housing.calendary.dayZero) / nanoSecPerDay ;
+                if(daysSinceLastUpdate > 0){      
+                    var updateArray = Array.filter<Reservation>(
+                        housing.calendary.reservations, 
+                        func(x: Reservation): Bool {x.checkOut >= daysSinceLastUpdate}
+                    );
+                    updateArray := Prim.Array_tabulate<Reservation>(
+                        updateArray.size(),
+                        func x {{
+                            updateArray[x] with 
+                            checkIn = updateArray[x].checkIn - daysSinceLastUpdate;
+                            checkOut = updateArray[x].checkOut -daysSinceLastUpdate    
+                        }}
+                    );
+                    let calendary = {dayZero = startOfCurrentDayGMT; reservations = updateArray};
+                    let housingUpdate = {housing with calendary};
+                    ignore Map.put<HousingId, Housing>(housings, nhash, housingId, housingUpdate);
+                    return calendary
+                } else {
+                    return housing.calendary
+                };
+            }
+        }
+    };
+
+    func cleanPendingVerifications(housingId: Nat, ids: [Nat]): [Nat] { //Remueve las solicitudes no confirmadas y con el tiempo de confirmacion transcurrido;
+        // TODO Esta funcion viola los principios solid ya que se encarga de limpiar las solicitudes pendientes tanto del Map general
+        // como tambien los id de solicitudes de dentro de las estructuras de los housing y ademas devuelve un array con los ids vigentes 
+        // correspondientes al HousingID pasado por parametro. Ealuar alguna refactorizacion
+        var reservationsPendingForId = ids;
+        for ((id, reservation) in Map.toArray<Nat, Reservation>(reservationsPendingConfirmation).vals()) {
+            if (now() > reservation.date + TimeToPay) {
+                print("Solicitud de reserva " # Nat.toText(id) # " Eliminada");
+                ignore Map.remove<Nat, Reservation>(reservationsPendingConfirmation, nhash, id);
+                let housing = Map.get<HousingId, Housing>(housings, nhash, reservation.housingId);
+                switch housing {
+                    case null { };
+                    case (?housing) {
+                        let reservationsPending = Array.filter<Nat>(
+                            housing.reservationsPending,
+                            func x = x != id
+                        );
+                        print("Id de solicitud " # Nat.toText(id) # " borrado\nreservas pendientes: ");
+                        print(debug_show(reservationsPending)); // revisar el filter
+                        if (id == housingId ) {
+                            reservationsPendingForId := reservationsPending;
+                            print("Id de reserva: " # Nat.toText(housingId));
+                            print(debug_show(reservationsPendingForId))
+                        };
+                        ignore Map.put<HousingId, Housing>(housings, nhash, reservation.housingId, {housing with reservationsPending});
+                    }
+                }
+            }
         };
-        calendary
+        reservationsPendingForId
+    };
+
+    func getPendingReservations(ids: [Nat]): {pendings: [Reservation]; pendingReservUpdate: [Nat]}{
+        let bufferReservations = Buffer.fromArray<Reservation>([]);
+        let bufferReservUpdate = Buffer.fromArray<Nat>([]); 
+        for (id in ids.vals()) {
+            switch (Map.get<Nat, Reservation>(reservationsPendingConfirmation, nhash, id)) {
+                case null {bufferReservUpdate.add(id)};
+                case ( ?reservation ) {
+                    // Si la solicitud es antigua se elimina del map y se devuelte el id para limpiar
+                    if ( now() > reservation.date + TimeToPay) {
+                        ignore Map.remove<Nat, Reservation>(reservationsPendingConfirmation, nhash, id);
+                        print("reserva " # Nat.toText(id) # " eliminada");
+                    } else {
+                        bufferReservations.add(reservation);
+                        bufferReservUpdate.add(id);
+                    }  
+                };
+            };
+        };
+        {pendings = Buffer.toArray(bufferReservations); pendingReservUpdate = Buffer.toArray(bufferReservUpdate)}
     };
 
     func checkDisponibility(housingId: HousingId, chechIn: Int, checkOut: Int): Bool {
         switch (Map.get<HousingId, Housing>(housings, nhash, housingId)) {
-            case (?housing) { if(not housing.active) { return false } };
-            case  _ { return false }
-        };
-        switch (Map.get<HousingId, Calendary>(calendars, nhash, housingId)) {
-            case null { false };
-            case (?calendar) {
-                print("Calendario encontrado");
-                let updatedCalendary = updateCalendary(housingId, calendar);
-                var checkDay = chechIn;
-                while (checkDay <= checkOut) {
-                    for(occuped in updatedCalendary.reservedDays.vals()){
-                        if(checkDay == occuped) {
-                            return false;
+            case (?housing) { 
+                if(not housing.active) { return false } 
+                else {
+                    // let updatedCalendary = updateCalendary(housing.calendary);
+                    let calendary = updateCalendary(housingId);
+                    var checkDay = chechIn;
+                    let {pendings; pendingReservUpdate} = getPendingReservations(housing.reservationsPending);
+                    ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with reservationsPending = pendingReservUpdate});
+                    while (checkDay < checkOut) {
+                        for (occuped in calendary.reservations.vals()){
+                            if(checkDay >= occuped.checkIn and checkDay < occuped.checkOut) {
+                                return false;
+                            };
                         };
+                        if (pendingReservUpdate.size() > 0) {
+                            print("Hay " # Nat.toText(pendingReservUpdate.size()) # " reservations pendientes");
+                            for (bloqued in pendings.vals()){
+                                print(debug_show(bloqued));
+                                if(checkDay >= bloqued.checkIn and checkDay < bloqued.checkOut) {
+                                    return false;
+                                }; 
+                            }
+                        };
+                        checkDay += 1;
                     };
-                    checkDay += 1;
-                };
-                return true
-            }
-        }
+                    return true
+                }
+            };
+            case  _ { return false }
+        };            
+    };
+    ////////// view reservations pendding /////////////////
+    public query func endingReserv(): async () {
+        print(debug_show(Map.toArray<Nat, Reservation>(reservationsPendingConfirmation)))
     };
 
-    public shared query ({ caller }) func getMyHousingDisponibility({checkIn: Nat; checkOut: Nat; page: Nat}): async ResultHousingPaginate{
-        let response = getHousingsPaginateByOwner({owner = caller; page});
+    //////////////////////////////////////////////////////
+    public shared query ({ caller }) func getMyHousingDisponibility({checkIn: Nat; checkOut: Nat; page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate{
+        let response = getHousingsPaginateByOwner(caller, page, qtyPerPage, true);
         switch response {
             case (#Ok({array; hasNext} )){
                 let bufferResults = Buffer.fromArray<HousingPreview>([]);
                 for(hostPreview in array.vals()){
-                    if(checkDisponibility(hostPreview.id, checkIn, checkOut)){
+                    if(checkDisponibility(hostPreview.housingId, checkIn, checkOut)){
                        bufferResults.add(hostPreview);
                     };
                 };
                 #Ok({array = Buffer.toArray<HousingPreview>(bufferResults); hasNext})
             };
             case (#Err(msg)) { #Err(msg) }
+        }
+    };
+
+    public func getDisponibilityById(housingId: Nat, period: {#M30; #M60; #M90; #M120} ): async {#Ok: [Int]; #Err: Text} { //Devuelve los dias no disponibles
+      //TODO marcar los dias pendientes de confirmacion de reserva
+        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
+        let maxPeriod: Int = switch period {
+            case ( #M30 ) { 30 }; 
+            case ( #M60 ) { 60 }; 
+            case ( #M90 ) { 90 }; 
+            case ( #M120) { 120 };
+        };
+        switch housing {
+            case null { #Err(msg.NotHousing)};
+            case (?housing) {
+                if(not housing.active) { return #Err(msg.InactiveHousing)};
+                let bufferDaysOccuped = Buffer.fromArray<Int>([]);
+                let calendary = updateCalendary(housingId);
+                print(debug_show(calendary));
+                for(reservation in calendary.reservations.vals()){
+                    var dayOccuped = reservation.checkIn;
+                    while (dayOccuped <= reservation.checkOut and dayOccuped < maxPeriod) {
+                        bufferDaysOccuped.add(dayOccuped);
+                        dayOccuped += 1;
+                    };
+                    if (dayOccuped >= maxPeriod) {return #Ok(Buffer.toArray(bufferDaysOccuped))}
+                };
+                #Ok(Buffer.toArray(bufferDaysOccuped))      
+            }
         }
     };
 
@@ -891,6 +832,157 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
+    ///////////////////////////// Reservations ////////////////////////////
+
+    func blobToText(t: Blob): Text {
+        var result = "";
+        let chars = ["0", "1" , "2" , "3" ,"4" , "5" , "6" , "7" , "8" , "9" , "a" , "b" , "c" , "d" , "e" , "f"];
+        for (c in Blob.toArray(t).vals()){
+            result #= chars[Nat8.toNat(c) / 16];
+            result #= chars[Nat8.toNat(c) % 16] 
+        };
+        result
+    };
+
+    func calculatePrice(price: ?Types.Price, days: Nat): Nat {
+        switch price {
+            case null {assert (false); 0 };
+            case (?price) {
+                var currentDiscount = 0;
+                let discounts = Array.sort<{minimumDays: Nat; discount: Nat}>(
+                    price.discountTable,
+                    func (a, b) = if (a.minimumDays < b.minimumDays) { #less } else { #greater } 
+                );
+                for(discount in discounts.vals()){
+                    print(debug_show(discount));
+                    if(days < discount.minimumDays) { return (price.base * days) - (price.base * days * currentDiscount / 100) };
+                    currentDiscount := discount.discount;   
+                };
+                return (price.base * days) - (price.base * days * currentDiscount / 100);
+            }
+        }
+    };
+
+    func putRequestReservationToHousing(housingId: HousingId, requestId: Nat) {
+        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
+        switch housing {
+            case null {assert false};
+            case ( ?housing ) {
+                let reservationsPending = Prim.Array_tabulate<Nat>(
+                    housing.reservationsPending.size() + 1,
+                    func x = if( x == 0 ) {requestId} else {housing.reservationsPending[x - 1]}
+                );
+                ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with reservationsPending});
+            }
+        } 
+    };
+
+    public shared ({ caller = applicant }) func requestReservation({housingId: HousingId; checkIn: Nat; checkOut: Nat; guest: Text}): async TransactionResponse {
+        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
+        switch housing {
+            case null { #Err(msg.NotHousing)};
+            case ( ?housing ) {
+                if(checkDisponibility(housingId, checkIn, checkOut)){
+                    lastReservationId += 1;
+                    let reservation: Reservation = {
+                        date = now();
+                        housingId;
+                        applicant;
+                        checkIn;
+                        checkOut;
+                        guest;
+                        reservationId = lastReservationId;
+                        confirmated = false;
+                        dataTransaction = null;
+                    };
+                    ignore Map.put<Nat, Reservation>(reservationsPendingConfirmation, nhash, lastReservationId, reservation);
+                    putRequestReservationToHousing(housingId, lastReservationId);
+                    let price = calculatePrice(housing.price, checkOut - checkIn);
+                    let dataTransaction: TransactionParams = {
+                        // Se toma el account por defecto correspondiente al principal del dueño del Host
+                        // Se puede establecer otro account proporcionado por el usuario 
+                        to = blobToText(AccountIdentifier.accountIdentifier(housing.owner, AccountIdentifier.defaultSubaccount()));
+                        amount = Nat64.fromNat(price);
+                    };
+                    #Ok({transactionParams = dataTransaction; reservationId = lastReservationId});
+                } else {
+                    #Err("")
+                };           
+            }
+        } 
+    };
+
+    func verifyTransaction({from; to; amount}: DataTransaction): async Bool {
+        return true; // Test
+        let indexer_icp = actor("qhbym-qaaaa-aaaaa-aaafq-cai"): actor {
+                get_account_identifier_transactions : 
+                    shared query Indexer_icp.GetAccountIdentifierTransactionsArgs -> async Indexer_icp.GetAccountIdentifierTransactionsResult;
+        };
+        let result = await indexer_icp.get_account_identifier_transactions({max_results = 10; start = null; account_identifier = from});
+        switch result {
+            case (#Ok(response)) {
+                for (transaction in response.transactions.vals()) {
+                    let operation = transaction.transaction.operation;
+                    switch operation {
+                        case( #Transfer(tx)) {
+                            if (tx.from == from and
+                            tx.to == to and
+                            tx.amount.e8s >= amount){
+                                return true
+                            }
+                        };
+                        case ( _ ) { }
+                    }; 
+                };
+                false
+                    
+            };
+            case (#Err(_)) { false }
+        }
+
+    };
+
+    public shared ({ caller }) func confirmReservation({reservationId: Nat; txData: DataTransaction}): async {#Ok: Reservation; #Err: Text} {
+        if (await verifyTransaction(txData)){
+            let reservation = Map.remove<Nat, Reservation>(reservationsPendingConfirmation, nhash, reservationId);
+            switch reservation {
+                case null { #Err(msg.NotReservation)};
+                case ( ?reservation ){
+                    let housing = Map.get<HousingId, Housing>(housings, nhash, reservation.housingId);
+                    switch housing {
+                        case null { #Err(msg.NotHousing)};
+                        case ( ?housing ) {
+                            let calendary = {
+                                housing.calendary with
+                                reservations = Prim.Array_tabulate<Reservation>(
+                                    housing.calendary.reservations.size() + 1,
+                                    func x = if (x == 0) { 
+                                        { reservation with 
+                                        confirmated = true;
+                                        dataTransaction = ?txData 
+                                        }
+                                    } 
+                                    else { 
+                                        housing.calendary.reservations[x - 1] 
+                                    }
+                                )
+                            };
+                            print(debug_show(calendary));
+                            let reservationsPending = Array.filter<Nat>(
+                                housing.reservationsPending,
+                                func x = x !=reservationId
+                            );
+                            ignore Map.put<HousingId, Housing>(housings, nhash, reservation.housingId, { housing with calendary; reservationsPending});
+                            #Ok({ reservation with confirmated = true })
+                        }
+                    }
+                }
+            }
+        } else {
+            #Err(msg.TransactionNotVerified)
+        }
+
+    };
 
     // public shared query ({ caller }) func getReservations({housingId: Nat}): async {#Ok: [(Nat, Reservation)]; #Err: Text}{
     //     let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
@@ -903,139 +995,8 @@ shared ({ caller }) actor class Triourism () = this {
     //             #Ok(Map.toArray<Nat, Reservation>(housing.reservationRequests))
     //         }
     //     }
-    // };
-
-  ///////////////////////////////// Reservations ///////////////////////////////////////////
-
-    // public shared ({ caller }) func requestReservationOld({housingId: HousingId; data: ReservationDataInput}):async ReservationResult {
-    //     let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
-    //     switch housing {
-    //         case null {
-    //             #Err(msg.NotHosting);
-    //         };
-    //         case (?housing) {
-    //             print("housing");
-    //             /////// housing calendar update / housing Map update //////
-    //             let calendar = updateCalendar(housing.calendar);
-    //             ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with calendar});
-
-    //             ///////////////////////////////////////////////////// DEBUGIN //////////////////////////////////////////////////////////
-    //             print("Momento actual en NanoSeg:  " # Int.toText(now()));
-    //             print("horas de anticipacio:       " # Int.toText(housing.minReservationLeadTimeNanoSec ));
-    //             print("Reserva a partir de fecha:  " # Int.toText((now() + housing.minReservationLeadTimeNanoSec)));
-    //             print("Fecha de ingreso silicitada " # Int.toText(data.checkIn));
-    //             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    //             if(now() + housing.minReservationLeadTimeNanoSec > data.checkIn){ 
-    //                 return #Err("Reservations are requested at least " #
-    //                 Int.toText(housing.minReservationLeadTimeNanoSec /(NANO_SEG_PER_HOUR)) #
-    //                 " hours in advance.");
-    //             };
-    //             if(availableAllDaysResquest(data.checkIn, data.checkOut)){
-    //                 let reservationId = await ramdomGenerator.randRange(1_000_000_000, 9_999_999_999);
-    //                 let reservation = {data with applicant = caller};
-    //                 let responseReservation = {
-    //                     reservationId;
-    //                     msg = "Espere"
-    //                 };
-    //                 ignore Map.put<Nat, Reservation>(housing.reservationRequests, nhash, reservationId, reservation );
-    //                 #Ok( responseReservation )
-    //             } else {
-    //                 #Err( msg.NotAvalableAllDays);
-    //             }
-    //         };
-    //     }    
-    // };
-
-    // public shared ({ caller }) func requestReservation({housingId: HousingId; data: ReservationDataInput}): async ReservationResult{
-    //     let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
-    //     switch housing {
-    //         case null {
-    //             #Err(msg.NotHosting);
-    //         };
-    //         case (?housing) {
-    //             print("housing");
-    //             /////// housing calendar update / housing Map update //////
-    //             let calendar = updateCalendar(housing.calendar);
-    //             ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with calendar});
-
-    //             ///////////////////////////////////////////////////// DEBUGIN //////////////////////////////////////////////////////////
-    //             print("Momento actual en NanoSeg:  " # Int.toText(now()));
-    //             print("horas de anticipacio:       " # Int.toText(housing.minReservationLeadTimeNanoSec ));
-    //             print("Reserva a partir de fecha:  " # Int.toText((now() + housing.minReservationLeadTimeNanoSec)));
-    //             print("Fecha de ingreso silicitada " # Int.toText(data.checkIn));
-    //             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    //             if(now() + housing.minReservationLeadTimeNanoSec > data.checkIn){ 
-    //                 return #Err("Reservations are requested at least " #
-    //                 Int.toText(housing.minReservationLeadTimeNanoSec /(NANO_SEG_PER_HOUR)) #
-    //                 " hours in advance.");
-    //             };
-    //             if(availableAllDaysResquest(data.checkIn, data.checkOut)){
-    //                 let reservationId = await ramdomGenerator.randRange(1_000_000_000, 9_999_999_999);
-    //                 let reservation = {data with applicant = caller};
-    //                 let responseReservation = {
-    //                     housingId;
-    //                     reservationId;
-    //                     data = reservation;
-    //                     msg = msg.PayRequest;
-    //                     paymentCode = await ramdomGenerator.randRange(1_000_000_000_000_000_000_000, 9_999_999_999_999_999_999_999)
-    //                 };
-    //                 ignore Map.put<Nat, Reservation>(housing.reservationRequests, nhash, reservationId, reservation );
-    //                 #Ok( responseReservation )
-    //             } else {
-    //                 #Err( msg.NotAvalableAllDays);
-    //             }
-    //         };
-    //     }
-    // };
-    // func paymentVerification(txHash: Nat):async Bool{
-    //     // TODO protocolo de verificacion de pago
-    //     true
-    // };
-
-    // public shared ({ caller }) func confirmReservation({reservId: Nat; hostId: HousingId; txHash: Nat}): async {#Ok; #Err: Text}{
-    //     let housing = Map.get<HousingId, Housing>(housings, nhash, hostId);
-    //     switch housing {
-    //         case null { #Err(msg.NotHosting) };
-    //         case ( ?housing ) {
-    //             let updatedCalendar = updateCalendar(housing.calendar);
-    //             ignore Map.put<HousingId, Housing>(housings, nhash, hostId, {housing with updatedCalendar}); 
-    //             let reserv = Map.remove<Nat, Reservation>(housing.reservationRequests, nhash, reservId);
-    //             switch reserv {
-    //                 case null { #Err(msg.NotReservation) };
-    //                 case ( ?reserv ) {
-    //                     if(caller != reserv.applicant) {
-    //                         return #Err(msg.CallerIsNotrequester)
-    //                     };
-    //                     // TODO Verificacion datos de pago a traves del txHhahs
-    //                     if (await paymentVerification(txHash)){
-    //                         print("insertando la reserva en el calendario");
-    //                         let calendar = insertReservationToCalendar(updatedCalendar, reserv);
-    //                         switch calendar {
-    //                             case (#Ok(calendar)) {
-
-    //                                 ignore Map.put<HousingId, Housing>(housings, nhash, hostId, {housing with calendar});
-    //                                 return #Ok
-    //                             };
-    //                             case (_) { 
-    //                                 ignore Map.put<Nat, Reservation>(housing.reservationRequests, nhash, reservId, reserv);
-    //                                 return #Err("Error") 
-    //                             }
-    //                         }
-    //                     };
-    //                     #Err("Incorrect payment verification")
-    //                 }
-    //             }
-    //         }
-    //     }
-    // };
-
-    // // TODO confirmacion de reservacion por parte del dueño del Host
-    // public shared ({ caller }) func confirmReservation({reservId: Nat; hostId: HousingId}): async (){
-        
-    // };
-
+    // }
+  
 
 };
 
