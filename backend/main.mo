@@ -220,6 +220,7 @@ shared ({ caller }) actor class Triourism () = this {
                     owner = caller;
                     calendary = {dayZero = now(); reservations = []};
                     reservationsPending = [];
+                    unavailability = { busy = []; notConfirmed = [] };
                 };
                 let housingIdsUser =  List.push<Nat>(lastHousingId, hostUser.housingIds);
                 ignore Map.put<Principal, HostUser>(hostUsers, phash, caller, {hostUser with housingIds = housingIdsUser});
@@ -436,6 +437,7 @@ shared ({ caller }) actor class Triourism () = this {
                                 thumbnail = housing.thumbnail;
                                 calendary = {dayZero = now(); reservations = []};
                                 reservationsPending = [];
+                                unavailability = { busy = []; notConfirmed = [] };
                             };
                             ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId,  newHousing );
                             i -= 1;
@@ -877,32 +879,35 @@ shared ({ caller }) actor class Triourism () = this {
         } 
     };
 
-    public shared ({ caller = applicant }) func requestReservation({housingId: HousingId; checkIn: Nat; checkOut: Nat; guest: Text}): async TransactionResponse {
+    public shared ({ caller = requester }) func requestReservation({housingId: HousingId; checkIn: Nat; checkOut: Nat; guest: Text}): async TransactionResponse {
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
+        assert(Map.has<Principal, User>(users, phash, requester));
         switch housing {
             case null { #Err(msg.NotHousing)};
             case ( ?housing ) {
                 if(checkDisponibility(housingId, checkIn, checkOut)){
                     lastReservationId += 1;
+                    let amount = calculatePrice(housing.price, checkOut - checkIn);
                     let reservation: Reservation = {
                         date = now();
                         housingId;
-                        applicant;
+                        reservationId = lastReservationId;
+                        requester;
                         checkIn;
                         checkOut;
                         guest;
-                        reservationId = lastReservationId;
                         confirmated = false;
+                        amount;
                         dataTransaction = null;
                     };
                     ignore Map.put<Nat, Reservation>(reservationsPendingConfirmation, nhash, lastReservationId, reservation);
                     putRequestReservationToHousing(housingId, lastReservationId);
-                    let price = calculatePrice(housing.price, checkOut - checkIn);
+                    
                     let dataTransaction: TransactionParams = {
                         // Se toma el account por defecto correspondiente al principal del dueño del Host
                         // Se puede establecer otro account proporcionado por el usuario 
                         to = blobToText(AccountIdentifier.accountIdentifier(housing.owner, AccountIdentifier.defaultSubaccount()));
-                        amount = Nat64.fromNat(price);
+                        amount = Nat64.fromNat(amount);
                     };
                     #Ok({transactionParams = dataTransaction; reservationId = lastReservationId});
                 } else {
@@ -912,8 +917,9 @@ shared ({ caller }) actor class Triourism () = this {
         } 
     };
 
-    func verifyTransaction({from; to; amount}: DataTransaction): async Bool {
+    func verifyTransaction({from; to; amount}: DataTransaction, registeredAmount: Nat64): async Bool {
         return true; // Test
+        if(amount != registeredAmount) { return false };
         let indexer_icp = actor("qhbym-qaaaa-aaaaa-aaafq-cai"): actor {
                 get_account_identifier_transactions : 
                     shared query Indexer_icp.GetAccountIdentifierTransactionsArgs -> async Indexer_icp.GetAccountIdentifierTransactionsResult;
@@ -943,44 +949,46 @@ shared ({ caller }) actor class Triourism () = this {
     };
 
     public shared ({ caller }) func confirmReservation({reservationId: Nat; txData: DataTransaction}): async {#Ok: Reservation; #Err: Text} {
-        if (await verifyTransaction(txData)){
             let reservation = Map.remove<Nat, Reservation>(reservationsPendingConfirmation, nhash, reservationId);
             switch reservation {
                 case null { #Err(msg.NotReservation)};
                 case ( ?reservation ){
-                    let housing = Map.get<HousingId, Housing>(housings, nhash, reservation.housingId);
-                    switch housing {
-                        case null { #Err(msg.NotHousing)};
-                        case ( ?housing ) {
-                            let calendary = {
-                                housing.calendary with
-                                reservations = Prim.Array_tabulate<Reservation>(
-                                    housing.calendary.reservations.size() + 1,
-                                    func x = if (x == 0) { 
-                                        { reservation with 
-                                        confirmated = true;
-                                        dataTransaction = ?txData 
+                    if (await verifyTransaction(txData, Nat64.fromNat(reservation.amount))){
+                        let housing = Map.get<HousingId, Housing>(housings, nhash, reservation.housingId);
+                        switch housing {
+                            case null { #Err(msg.NotHousing)};
+                            case ( ?housing ) {
+                                let calendary = {
+                                    housing.calendary with
+                                    reservations = Prim.Array_tabulate<Reservation>(
+                                        housing.calendary.reservations.size() + 1,
+                                        func x = if (x == 0) { 
+                                            { reservation with 
+                                            confirmated = true;
+                                            dataTransaction = ?txData 
+                                            }
+                                        } 
+                                        else { 
+                                            housing.calendary.reservations[x - 1] 
                                         }
-                                    } 
-                                    else { 
-                                        housing.calendary.reservations[x - 1] 
-                                    }
-                                )
-                            };
-                            print(debug_show(calendary));
-                            let reservationsPending = Array.filter<Nat>(
-                                housing.reservationsPending,
-                                func x = x !=reservationId
-                            );
-                            ignore Map.put<HousingId, Housing>(housings, nhash, reservation.housingId, { housing with calendary; reservationsPending});
-                            #Ok({ reservation with confirmated = true })
+                                    )
+                                };
+                                print(debug_show(calendary));
+                                let reservationsPending = Array.filter<Nat>(
+                                    housing.reservationsPending,
+                                    func x = x !=reservationId
+                                );
+                                ignore Map.put<HousingId, Housing>(housings, nhash, reservation.housingId, { housing with calendary; reservationsPending});
+                                #Ok({ reservation with confirmated = true })
+                            }
                         }
-                    }
+                        } else {
+                            #Err(msg.TransactionNotVerified)
+                        };
+                    
                 }
             }
-        } else {
-            #Err(msg.TransactionNotVerified)
-        }
+        
 
     };
 

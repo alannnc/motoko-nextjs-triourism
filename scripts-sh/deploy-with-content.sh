@@ -93,7 +93,7 @@ dfx canister call backend createHousing '(record {
 # ------------ Usuario Host 2 -------------- 
 dfx identity new 0000TestUser2
 dfx identity use 0000TestUser2
-dfx canister call backend signUpAsHost '(record {
+dfx canister call backend signUpAsUser '(record {
     firstName="Lucila";
     lastName="Peralta";
     email="lucilaperalta@live.com";
@@ -113,7 +113,7 @@ dfx canister call backend signUpAsHost '(record {
 # ------------ Usuario Host 4 -------------- 
 dfx identity new 0000TestUser4
 dfx identity use 0000TestUser4
-dfx canister call backend signUpAsHost '(record {
+dfx canister call backend signUpAsUser '(record {
     firstName="Mario";
     lastName="Pappa";
     email="mariopapa@gmail.com";
@@ -133,12 +133,72 @@ dfx canister call backend signUpAsHost '(record {
 # ------------ Usuario Host 6 -------------- 
 dfx identity new 0000TestUser6
 dfx identity use 0000TestUser6
-dfx canister call backend signUpAsHost '(record {
+dfx canister call backend signUpAsUser '(record {
     firstName="Carlos";
     lastName="Maldonado";
     email="carlosmaldonado.com";
     phone = opt 5422145789544
 })'
 
+# ------------ Usuario 4 solicita una reserva de 6 dias para dentro de 3 dias
+dfx identity use 0000TestUser4
+dfx canister call backend requestReservation '(record {
+  housingId = 1; 
+  checkIn = 3; 
+  checkOut = 9; 
+  guest = "Mario"
+})'
 
 
+# ------------ Usuario 2 pide reserva para dentro de 12 dias y se queda 3
+
+dfx identity use 0000TestUser2
+dfx canister call backend requestReservation '(record {
+  housingId = 1; 
+  checkIn = 12; 
+  checkOut = 15; 
+  guest = "Lucila"
+})'
+
+# ------------ Usuario 6 pide reserva para dentro de 9 dias y se queda 2
+
+dfx identity use 0000TestUser6
+dfx canister call backend requestReservation '(record {
+  housingId = 1; 
+  checkIn = 9; 
+  checkOut = 11; 
+  guest = "Carlos"
+})'
+
+# ------------ Usuario 4 confirma la reserva
+dfx identity use 0000TestUser4
+dfx canister call backend confirmReservation '(record {
+  reservationId  = 1; 
+  txData = record {
+    to = ""; 
+    amount = 4_000_000_000; 
+    from = ""
+  }
+})'
+
+# ------------ Usuario 2 confirma la reserva
+dfx identity use 0000TestUser2
+dfx canister call backend confirmReservation '(record {
+  reservationId  = 2; 
+  txData = record {
+    to = ""; 
+    amount = 4_000_000_000; 
+    from = ""
+  }
+})'
+
+# ------------ Usuario 6 confirma la reserva
+dfx identity use 0000TestUser6
+dfx canister call backend confirmReservation '(record {
+  reservationId  = 3; 
+  txData = record {
+    to = ""; 
+    amount = 4_000_000_000; 
+    from = ""
+  }
+})'

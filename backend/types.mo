@@ -70,6 +70,7 @@ module {
         reviews: List.List<Nat>;
         calendary: Calendary;
         reservationsPending: [Nat];
+        unavailability : {busy: [Nat]; notConfirmed: [Nat]} // busy es la lista de dias ocupados, siendo 0 el dia actual y notConfirmed es la lista de dias correspondientes a todas las solicitudes pendiente
     };
 
     public type HousingTypeInit = {
@@ -188,8 +189,9 @@ module {
     public type Reservation = ReservationDataInput and {
         date: Int;
         reservationId: Nat;
-        applicant: Principal;
+        requester: Principal;
         confirmated: Bool;
+        amount: Nat;
         dataTransaction: ?DataTransaction;
     };
 
