@@ -92,11 +92,20 @@ Solicitud de reserva
 
 ```
 dfx canister call backend requestReservation '(record {
-    housingId = 1 : nat;
-    data = record {
-      checkIn = 1731198892000000000 : int;
-      guest = "Leonardo";
-      checkOut = 1733790892000000000 : int;
-    };
+  housingId = 1; 
+  checkIn = 9; 
+  checkOut = 11; 
+  guest = "Carlos"
 })'
+
+
+dfx canister call backend confirmReservation '(record {
+  reservationId  = ; 
+  txData = record {
+    to = ""; 
+    amount = 4_000_000_000; 
+    from = ""
+  }
+})'
+
 ```

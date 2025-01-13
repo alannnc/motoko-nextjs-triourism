@@ -46,9 +46,9 @@ shared ({ caller }) actor class Triourism () = this {
     stable let DEPLOYER = caller;
 
     // /////////////// WARNING modificar estas variables en produccion a los valores reales  ////
-    let nanoSecPerDay = 40 * 1_000_000_000;             // Test Transcurso acelerado de los dias
+    let nanoSecPerDay = 30 * 1_000_000_000;             // Test Transcurso acelerado de los dias
     // let nanoSecPerDay = 86400 * 1_000_000_000;       // Valor real de nanosegundos en un dia
-    stable var TimeToPay = 20 * 1_000_000_000;          // Tiempo en nanosegundos para confirmar la reserva mediante pago
+    stable var TimeToPay = 15 * 1_000_000_000;          // Tiempo en nanosegundos para confirmar la reserva mediante pago
     // stable var TimeToPay = 30 * 60 * 1_000_000_000;  // Tiempo sugerido 30 minutos
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
      
@@ -220,7 +220,7 @@ shared ({ caller }) actor class Triourism () = this {
                     owner = caller;
                     calendary = {dayZero = now(); reservations = []};
                     reservationsPending = [];
-                    unavailability = { busy = []; notConfirmed = [] };
+                    unavailability = { busy = []; pending = [] };
                 };
                 let housingIdsUser =  List.push<Nat>(lastHousingId, hostUser.housingIds);
                 ignore Map.put<Principal, HostUser>(hostUsers, phash, caller, {hostUser with housingIds = housingIdsUser});
@@ -437,7 +437,7 @@ shared ({ caller }) actor class Triourism () = this {
                                 thumbnail = housing.thumbnail;
                                 calendary = {dayZero = now(); reservations = []};
                                 reservationsPending = [];
-                                unavailability = { busy = []; notConfirmed = [] };
+                                unavailability = { busy = []; pending = [] };
                             };
                             ignore Map.put<HousingId, Housing>(housings, nhash, lastHousingId,  newHousing );
                             i -= 1;
@@ -509,19 +509,14 @@ shared ({ caller }) actor class Triourism () = this {
     };
 
     public shared query ({ caller }) func getCalendarById(id: Nat): async {#Ok: Calendary; #Err: Text}{
-        //agregar lista de marcados como pendientes de verificacion
         switch (Map.get<HousingId, Housing>(housings, nhash, id)) {
-            case (?housing) { 
-                if(housing.active) {
-                    let calendary = updateCalendary(id);
-                    #Ok(calendary)
-                } else {
-                    return #Err(msg.InactiveHousing)
-                }
+            case (?housing) {
+                if (housing.owner != caller ) {return #Err(msg.CallerNotHousingOwner)};
+                let { calendary } = updateCalendary(id);
+                #Ok(calendary)
             };
             case null { return #Err(msg.NotHousing)};   
         };
-        
     };
 
     public func getHousingById({housingId: HousingId;  photoIndex: Nat}): async {#Ok: HousingResponse; #Err: Text} {
@@ -534,12 +529,13 @@ shared ({ caller }) actor class Triourism () = this {
                 if(not housing.active and housing.owner != caller) {
                     return #Err(msg.InactiveHousing)
                 };
-                let calendary = updateCalendary(housingId);
+                let { unavailability } = updateCalendary(housingId);
                 if(photoIndex == 0){
                     let housingResponse: HousingResponse = #Start({
                         housing with
                         reservationsPending;
-                        calendary;  
+                        calendary = {dayZero = 0 ; reservations = []}; //Informacion omitida para el publico
+                        unavailability;
                         photos = if(housing.photos.size() > 0) { [housing.photos[0]] } else { [] };
                         hasNextPhoto = (housing.photos.size() > photoIndex + 1)
                     });
@@ -657,12 +653,21 @@ shared ({ caller }) actor class Triourism () = this {
         getHousingsPaginateByOwner(host, page, qtyPerPage, true)
     };
 
-    func updateCalendary(housingId: HousingId): Calendary {
+    type UpdateCalendaryResponse = {
+        calendary: Calendary;
+        unavailability: {busy: [Int]; pending: [Int]};
+    };
+
+    func updateCalendary(housingId: HousingId): UpdateCalendaryResponse{
         switch (Map.get<HousingId, Housing>(housings, nhash, housingId)){
-            case null {assert false; {dayZero = 0; reservations = []}};
+            case null {
+                assert false; // La siguiente linea no se ejecuta nunca pero se requiere que todas las ramificaciones tengan una ultima linea con una expresion del tipo de retorno
+                { calendary = {dayZero = 0; reservations = []} ; unavailability = {busy = []; pending = []}};
+            };
             case ( ?housing ) {
                 let startOfCurrentDayGMT = now() - now() % nanoSecPerDay ; // Timestamp inicio del dia actual en GTM + 0
-                let daysSinceLastUpdate = (startOfCurrentDayGMT - housing.calendary.dayZero) / nanoSecPerDay ;
+                let daysSinceLastUpdate = (startOfCurrentDayGMT - housing.calendary.dayZero) / nanoSecPerDay;
+                // El siguiente bloque funciona bien pero se puede acomodar mejor
                 if(daysSinceLastUpdate > 0){      
                     var updateArray = Array.filter<Reservation>(
                         housing.calendary.reservations, 
@@ -676,15 +681,48 @@ shared ({ caller }) actor class Triourism () = this {
                             checkOut = updateArray[x].checkOut -daysSinceLastUpdate    
                         }}
                     );
+                    let busy = getUnaviabilityFromReservations(#ReservationType(updateArray));
+                    let pending = getUnaviabilityFromReservations(#IdsReservation(housing.reservationsPending));
+                    let unavailability = {busy; pending};
                     let calendary = {dayZero = startOfCurrentDayGMT; reservations = updateArray};
-                    let housingUpdate = {housing with calendary};
+                    let housingUpdate = {housing with calendary; unavailability};
                     ignore Map.put<HousingId, Housing>(housings, nhash, housingId, housingUpdate);
-                    return calendary
+                    return {calendary; unavailability};
                 } else {
-                    return housing.calendary
+                    let busy = getUnaviabilityFromReservations(#ReservationType(housing.calendary.reservations));
+                    let pending = getUnaviabilityFromReservations(#IdsReservation(housing.reservationsPending));
+                    let unavailability = {busy; pending};
+                    return {calendary = housing.calendary; unavailability }
                 };
             }
         }
+    };
+
+    func getUnaviabilityFromReservations(input: {#ReservationType: [Reservation]; #IdsReservation : [Nat]}): [Int] {
+        let bufferDaysUnavailable = Buffer.fromArray<Int>([]);
+        let reservationsArray = switch input {
+            case ( #ReservationType(reservationsArray)){ reservationsArray };
+            case ( #IdsReservation(idsArray) ) {
+                let bufferReservations = Buffer.fromArray<Reservation>([]);
+                for (id in idsArray.vals()) {
+                    switch (Map.get<Nat, Reservation>(reservationsPendingConfirmation, nhash, id)) {
+                        case null { };
+                        case (?reservation) { bufferReservations.add(reservation)}
+                    };
+                };
+                Buffer.toArray<Reservation>(bufferReservations);
+            }
+        };       
+        for (r in reservationsArray.vals()) {
+            var dayOccuped = r.checkIn;
+            while(dayOccuped < r.checkOut ) {
+                bufferDaysUnavailable.add(dayOccuped);
+                dayOccuped += 1;
+            }
+        };
+        Array.sort(Buffer.toArray(bufferDaysUnavailable), Int.compare);    
+            
+        
     };
 
     func cleanPendingVerifications(housingId: Nat, ids: [Nat]): [Nat] { //Remueve las solicitudes no confirmadas y con el tiempo de confirmacion transcurrido;
@@ -694,7 +732,7 @@ shared ({ caller }) actor class Triourism () = this {
         var reservationsPendingForId = ids;
         for ((id, reservation) in Map.toArray<Nat, Reservation>(reservationsPendingConfirmation).vals()) {
             if (now() > reservation.date + TimeToPay) {
-                print("Solicitud de reserva " # Nat.toText(id) # " Eliminada");
+                print("Solicitud de reserva " # Nat.toText(id) # " Eliminada por timeout");
                 ignore Map.remove<Nat, Reservation>(reservationsPendingConfirmation, nhash, id);
                 let housing = Map.get<HousingId, Housing>(housings, nhash, reservation.housingId);
                 switch housing {
@@ -746,7 +784,7 @@ shared ({ caller }) actor class Triourism () = this {
                 if(not housing.active) { return false } 
                 else {
                     // let updatedCalendary = updateCalendary(housing.calendary);
-                    let calendary = updateCalendary(housingId);
+                    let { calendary } = updateCalendary(housingId);
                     var checkDay = chechIn;
                     let {pendings; pendingReservUpdate} = getPendingReservations(housing.reservationsPending);
                     ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with reservationsPending = pendingReservUpdate});
@@ -795,34 +833,34 @@ shared ({ caller }) actor class Triourism () = this {
         }
     };
 
-    public func getDisponibilityById(housingId: Nat, period: {#M30; #M60; #M90; #M120} ): async {#Ok: [Int]; #Err: Text} { //Devuelve los dias no disponibles
-      //TODO marcar los dias pendientes de confirmacion de reserva
-        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
-        let maxPeriod: Int = switch period {
-            case ( #M30 ) { 30 }; 
-            case ( #M60 ) { 60 }; 
-            case ( #M90 ) { 90 }; 
-            case ( #M120) { 120 };
-        };
-        switch housing {
-            case null { #Err(msg.NotHousing)};
-            case (?housing) {
-                if(not housing.active) { return #Err(msg.InactiveHousing)};
-                let bufferDaysOccuped = Buffer.fromArray<Int>([]);
-                let calendary = updateCalendary(housingId);
-                print(debug_show(calendary));
-                for(reservation in calendary.reservations.vals()){
-                    var dayOccuped = reservation.checkIn;
-                    while (dayOccuped <= reservation.checkOut and dayOccuped < maxPeriod) {
-                        bufferDaysOccuped.add(dayOccuped);
-                        dayOccuped += 1;
-                    };
-                    if (dayOccuped >= maxPeriod) {return #Ok(Buffer.toArray(bufferDaysOccuped))}
-                };
-                #Ok(Buffer.toArray(bufferDaysOccuped))      
-            }
-        }
-    };
+    // public func getDisponibilityById(housingId: Nat, period: {#M30; #M60; #M90; #M120} ): async {#Ok: [Int]; #Err: Text} { //Devuelve los dias no disponibles
+    //   //TODO marcar los dias pendientes de confirmacion de reserva
+    //     let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
+    //     let maxPeriod: Int = switch period {
+    //         case ( #M30 ) { 30 }; 
+    //         case ( #M60 ) { 60 }; 
+    //         case ( #M90 ) { 90 }; 
+    //         case ( #M120) { 120 };
+    //     };
+    //     switch housing {
+    //         case null { #Err(msg.NotHousing)};
+    //         case (?housing) {
+    //             if(not housing.active) { return #Err(msg.InactiveHousing)};
+    //             let bufferDaysOccuped = Buffer.fromArray<Int>([]);
+    //             let { calendary; unavailability } = updateCalendary(housingId);
+    //             print(debug_show(calendary));
+    //             for(reservation in calendary.reservations.vals()){
+    //                 var dayOccuped = reservation.checkIn;
+    //                 while (dayOccuped <= reservation.checkOut and dayOccuped < maxPeriod) {
+    //                     bufferDaysOccuped.add(dayOccuped);
+    //                     dayOccuped += 1;
+    //                 };
+    //                 if (dayOccuped >= maxPeriod) {return #Ok(Buffer.toArray(bufferDaysOccuped))}
+    //             };
+    //             #Ok(Buffer.toArray(bufferDaysOccuped))      
+    //         }
+    //     }
+    // };
 
     public query func getAmenities({housingId: HousingId}): async ?Types.Amenities {
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
@@ -881,7 +919,7 @@ shared ({ caller }) actor class Triourism () = this {
 
     public shared ({ caller = requester }) func requestReservation({housingId: HousingId; checkIn: Nat; checkOut: Nat; guest: Text}): async TransactionResponse {
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
-        assert(Map.has<Principal, User>(users, phash, requester));
+        if ( not Map.has<Principal, User>(users, phash, requester)) { return #Err(msg.NotUser)};
         switch housing {
             case null { #Err(msg.NotHousing)};
             case ( ?housing ) {
@@ -911,7 +949,7 @@ shared ({ caller }) actor class Triourism () = this {
                     };
                     #Ok({transactionParams = dataTransaction; reservationId = lastReservationId});
                 } else {
-                    #Err("")
+                    #Err(msg.NotAvalableAllDays)
                 };           
             }
         } 

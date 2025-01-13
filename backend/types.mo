@@ -70,7 +70,7 @@ module {
         reviews: List.List<Nat>;
         calendary: Calendary;
         reservationsPending: [Nat];
-        unavailability : {busy: [Nat]; notConfirmed: [Nat]} // busy es la lista de dias ocupados, siendo 0 el dia actual y notConfirmed es la lista de dias correspondientes a todas las solicitudes pendiente
+        unavailability : {busy: [Int]; pending: [Int]} // busy es la lista de dias ocupados, siendo 0 el dia actual y notConfirmed es la lista de dias correspondientes a todas las solicitudes pendiente
     };
 
     public type HousingTypeInit = {

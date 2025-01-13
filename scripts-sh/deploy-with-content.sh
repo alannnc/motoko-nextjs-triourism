@@ -7,6 +7,7 @@ dfx deploy backend
 # ------------ Usuario Host 1 --------------
 dfx identity new 0000TestUser1
 dfx identity use 0000TestUser1
+echo "registro de User Host Alberto Campos ... "
 dfx canister call backend signUpAsHost '(record {
     firstName="Alberto";
     lastName="Campos";
@@ -14,7 +15,7 @@ dfx canister call backend signUpAsHost '(record {
     phone = opt 542238780892
 })'
 # CreateHousing 1
-
+echo "Alberto registra un housing ... "
 dfx canister call backend createHousing '(record {
     namePlace="Far West";
     nameHost="Alberto Campos";
@@ -25,6 +26,7 @@ dfx canister call backend createHousing '(record {
     thumbnail = blob "Qk06AAAAAAAAADYAAAAoAAAAAQAAAAEAAAABAAEAAAA"
 })'
 # Update Prices housing 1
+echo "Alberto setea el precio del housing de id 1, o sea el que acaba de crear ... "
 dfx canister call backend updatePrices '(record {
     id = 1 : nat;
     price = record {
@@ -39,10 +41,10 @@ dfx canister call backend updatePrices '(record {
 
 
 #Assing housing Type
-
+echo "Alberto crea un tipo de habitacion a partir de su housing de id 1 indicando que existen 4 ... "
 dfx canister call backend cloneHousingWithProperties '(record {
   housingId = 1 : nat;
-  qty = 1 : nat;
+  qty = 4 : nat;
   housingTypeInit = record {
     extraGuest = 2 : nat;
     bathroom = record {
@@ -59,6 +61,7 @@ dfx canister call backend cloneHousingWithProperties '(record {
 })'
 
 #Set Address Housing 1
+echo "Alberto establece la dirección de su housing de id 1"
 
 dfx canister call backend setAddress '(record {
   housingId = 1 : nat;
@@ -73,10 +76,11 @@ dfx canister call backend setAddress '(record {
   };
 })'
 
+echo "Alberto publica su housing de id 1 ..." 
 dfx canister call backend publishHousing 1
 
 # CreateHousing 2
-
+echo "Alberto crear otro housing ..." 
 dfx canister call backend createHousing '(record {
     namePlace="";
     nameHost="Alberto Campos";
@@ -93,6 +97,7 @@ dfx canister call backend createHousing '(record {
 # ------------ Usuario Host 2 -------------- 
 dfx identity new 0000TestUser2
 dfx identity use 0000TestUser2
+echo "se registra una usuario llamada Lucila..."
 dfx canister call backend signUpAsUser '(record {
     firstName="Lucila";
     lastName="Peralta";
@@ -100,7 +105,8 @@ dfx canister call backend signUpAsUser '(record {
     phone = opt 542298712438
 })'
 
-# ------------ Usuario Host 3 -------------- 
+# ------------ Usuario Host 3 --------------
+echo "se registra una  UserHost llamada Claudia..."
 dfx identity new 0000TestUser3
 dfx identity use 0000TestUser3
 dfx canister call backend signUpAsHost '(record {
@@ -113,6 +119,7 @@ dfx canister call backend signUpAsHost '(record {
 # ------------ Usuario Host 4 -------------- 
 dfx identity new 0000TestUser4
 dfx identity use 0000TestUser4
+echo "se registra un usuario llamado Mario..."
 dfx canister call backend signUpAsUser '(record {
     firstName="Mario";
     lastName="Pappa";
@@ -123,6 +130,7 @@ dfx canister call backend signUpAsUser '(record {
 # ------------ Usuario Host 5 -------------- 
 dfx identity new 0000TestUser5
 dfx identity use 0000TestUser5
+echo "se registra un  UserHost llamado Rodolfo..."
 dfx canister call backend signUpAsHost '(record {
     firstName="Rodolfo";
     lastName="Anchorena";
@@ -144,8 +152,8 @@ dfx canister call backend signUpAsUser '(record {
 dfx identity use 0000TestUser4
 dfx canister call backend requestReservation '(record {
   housingId = 1; 
-  checkIn = 3; 
-  checkOut = 9; 
+  checkIn = 1; 
+  checkOut = 12; 
   guest = "Mario"
 })'
 
@@ -193,12 +201,12 @@ dfx canister call backend confirmReservation '(record {
 })'
 
 # ------------ Usuario 6 confirma la reserva
-dfx identity use 0000TestUser6
-dfx canister call backend confirmReservation '(record {
-  reservationId  = 3; 
-  txData = record {
-    to = ""; 
-    amount = 4_000_000_000; 
-    from = ""
-  }
-})'
+# dfx identity use 0000TestUser6
+# dfx canister call backend confirmReservation '(record {
+#   reservationId  = 3; 
+#   txData = record {
+#     to = ""; 
+#     amount = 4_000_000_000; 
+#     from = ""
+#   }
+# })'
