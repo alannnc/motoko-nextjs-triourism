@@ -153,7 +153,7 @@ dfx identity use 0000TestUser4
 dfx canister call backend requestReservation '(record {
   housingId = 1; 
   checkIn = 1; 
-  checkOut = 12; 
+  checkOut = 11; 
   guest = "Mario"
 })'
 

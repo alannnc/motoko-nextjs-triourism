@@ -16,5 +16,7 @@ module {
     public let IsNotpublishable = "Not publishable due to missing data";
     public let HousingTypeExist = "The housing type already exists";
     public let HousingTypeNoExist = "The type of housing does not exist";
+    public let CallerIsNotRequester = "The caller is not the requester of the reservation id number ";
     public let TransactionNotVerified = "The transaction was not verified successfully";
+    public let ErrorCheckinCheckout = "Check-in for one accommodation must be at least one hour later than check-out for the previous accommodation";
 };
