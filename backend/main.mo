@@ -156,7 +156,8 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         neighborhood = ""; 
         zipCode = 0; street = "";  
         externalNumber = 0; 
-        internalNumber = 0
+        internalNumber = 0;
+        coordinates = null;
     };
 
     let defaultHousinValues = {
@@ -385,6 +386,21 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                 if(caller != housing.owner) {
                     return #Err(msg.CallerNotHousingOwner);
                 };
+                ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with address});
+                #Ok
+            }
+        }
+    };
+
+    public shared ({ caller }) func locateOnTheMap({housingId: HousingId; lat: Int; lng: Int}): async {#Ok; #Err: Text} {
+        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
+        switch housing {
+            case null { #Err(msg.NotHousing)};
+            case ( ?housing ) {
+                if(caller != housing.owner) {
+                    return #Err(msg.CallerNotHousingOwner);
+                };
+                let address = {housing.address with coordinates = ?{lat; lng}};
                 ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with address});
                 #Ok
             }

@@ -165,6 +165,7 @@ module {
         street: Text;
         externalNumber: Nat;
         internalNumber: Nat;
+        coordinates: ?{lat: Int; lng: Int}
     };
 
     public type Price = {
