@@ -18,5 +18,6 @@ module {
     public let HousingTypeNoExist = "The type of housing does not exist";
     public let CallerIsNotRequester = "The caller is not the requester of the reservation id number ";
     public let TransactionNotVerified = "The transaction was not verified successfully";
-    public let ErrorCheckinCheckout = "Check-in for one accommodation must be at least one hour later than check-out for the previous accommodation";
+    public let ErrorSetHoursCheckInCheckOut = "Check-in for one accommodation must be at least one hour later than check-out for the previous accommodation";
+    public let ErrorCheckInCheckOutDays = "The CheckOut day must be at least one day after the CheckIn day."
 };

@@ -165,7 +165,7 @@ module {
         street: Text;
         externalNumber: Nat;
         internalNumber: Nat;
-        coordinates: ?{lat: Int; lng: Int}
+        geolocation: ?{lat: Int; lng: Int}
     };
 
     public type Price = {
@@ -185,10 +185,14 @@ module {
         checkIn: Int;    // Número de día de ingreso. Siendo 0 el día actual
         checkOut: Int;   // El egreso tiene que ser mayor que 1 + el ingreso
         guest: Text;     // Nombre del huésped
+        email: Text;
+        phone: Nat;
     };
 
     public type Reservation = ReservationDataInput and {
         date: Int;
+        // checkIn: Int;   // Int es un supertipo de Nat por lo tanto no hay conflicto con el checkIn que se "hereda" de ReservationDataInput y queda como Int
+        // checkOut: Int;  // Idem
         reservationId: Nat;
         requester: Principal;
         confirmated: Bool;

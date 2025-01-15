@@ -15,6 +15,7 @@ import List "mo:base/List";
 import Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
 import Nat64 "mo:base/Nat64";
+import Text "mo:base/Text";
 import Indexer_icp "./indexer_icp_token";
 import AccountIdentifier "mo:account-identifier";
 
@@ -150,14 +151,14 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         a.internalNumber == b.internalNumber
     };
 
-    let NULL_LOCATION = {
+    let NULL_LOCATION: Types.Location = {
         country = "";
         city = ""; 
         neighborhood = ""; 
         zipCode = 0; street = "";  
         externalNumber = 0; 
         internalNumber = 0;
-        coordinates = null;
+        geolocation = null;
     };
 
     let defaultHousinValues = {
@@ -325,26 +326,26 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         } 
     };
 
-    // public shared ({ caller }) func setMinReservationLeadTime({id: HousingId; hours: Nat}):async  {#Ok; #Err: Text} {
-    //     let housing = Map.get<HousingId, Housing>(housings, nhash, id);
-    //     switch housing {
-    //         case null {
-    //             return #Err(msg.NotHosting);
-    //         };
-    //         case (?housing) {
-    //             if(housing.owner != caller){
-    //                 return #Err(msg.CallerNotHousingOwner);
-    //             };
-    //             ignore Map.put<HousingId, Housing>(
-    //                 housings, 
-    //                 nhash, 
-    //                 id, 
-    //                 {housing with minReservationLeadTimeNanoSeg = hours * NANO_SEG_PER_HOUR});
-    //             #Ok;
-    //         }
+    public shared ({ caller }) func setMinReservationLeadTime({id: HousingId; hours: Nat}):async  {#Ok; #Err: Text} {
+        let housing = Map.get<HousingId, Housing>(housings, nhash, id);
+        switch housing {
+            case null {
+                return #Err(msg.NotHousing);
+            };
+            case (?housing) {
+                if(housing.owner != caller){
+                    return #Err(msg.CallerNotHousingOwner);
+                };
+                ignore Map.put<HousingId, Housing>(
+                    housings, 
+                    nhash, 
+                    id, 
+                    {housing with minReservationLeadTimeNanoSeg = hours * 60 * 60 * 1_000_000_000});
+                #Ok;
+            }
 
-    //     }
-    // };
+        }
+    };
 
     public shared ({ caller }) func setHousingStatus({id: HousingId; active: Bool}): async {#Ok; #Err: Text}{
         let housing = Map.get<HousingId, Housing>(housings, nhash, id);
@@ -364,7 +365,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     };
 
     public shared ({ caller }) func setChekInCheckOut({housingId: HousingId; checkIn: Nat; checkOut: Nat}): async {#Ok; #Err: Text}{
-        if(checkOut >= checkIn) { return #Err(msg.ErrorCheckinCheckout) }; 
+        if(checkOut >= checkIn) { return #Err(msg.ErrorSetHoursCheckInCheckOut) }; 
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         switch housing {
             case null { #Err(msg.NotHousing)};
@@ -392,7 +393,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         }
     };
 
-    public shared ({ caller }) func locateOnTheMap({housingId: HousingId; lat: Int; lng: Int}): async {#Ok; #Err: Text} {
+    public shared ({ caller }) func locateOnTheMap({housingId: HousingId; lat: Int; lng: Int}): async {#Ok; #Err: Text} { // lat y lng van multiplicados por 10e7
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         switch housing {
             case null { #Err(msg.NotHousing)};
@@ -400,15 +401,14 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                 if(caller != housing.owner) {
                     return #Err(msg.CallerNotHousingOwner);
                 };
-                let address = {housing.address with coordinates = ?{lat; lng}};
+                let address = {housing.address with geolocation = ?{lat; lng}};
                 ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with address});
                 #Ok
             }
         }
     };
     
-    public shared ({ caller }) func cloneHousingWithProperties({housingId: HousingId; qty: Nat; housingTypeInit: HousingTypeInit}): async {#Ok; #Err: Text} {
-        
+    public shared ({ caller }) func cloneHousingWithProperties({housingId: HousingId; qty: Nat; housingTypeInit: HousingTypeInit}): async {#Ok; #Err: Text} {       
         let hostUser = Map.get<Principal, HostUser>(hostUsers, phash, caller);
         switch hostUser {
             case null {
@@ -850,35 +850,6 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         }
     };
 
-    // public func getDisponibilityById(housingId: Nat, period: {#M30; #M60; #M90; #M120} ): async {#Ok: [Int]; #Err: Text} { //Devuelve los dias no disponibles
-    //   //TODO marcar los dias pendientes de confirmacion de reserva
-    //     let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
-    //     let maxPeriod: Int = switch period {
-    //         case ( #M30 ) { 30 }; 
-    //         case ( #M60 ) { 60 }; 
-    //         case ( #M90 ) { 90 }; 
-    //         case ( #M120) { 120 };
-    //     };
-    //     switch housing {
-    //         case null { #Err(msg.NotHousing)};
-    //         case (?housing) {
-    //             if(not housing.active) { return #Err(msg.InactiveHousing)};
-    //             let bufferDaysOccuped = Buffer.fromArray<Int>([]);
-    //             let { calendary; unavailability } = updateCalendary(housingId);
-    //             print(debug_show(calendary));
-    //             for(reservation in calendary.reservations.vals()){
-    //                 var dayOccuped = reservation.checkIn;
-    //                 while (dayOccuped <= reservation.checkOut and dayOccuped < maxPeriod) {
-    //                     bufferDaysOccuped.add(dayOccuped);
-    //                     dayOccuped += 1;
-    //                 };
-    //                 if (dayOccuped >= maxPeriod) {return #Ok(Buffer.toArray(bufferDaysOccuped))}
-    //             };
-    //             #Ok(Buffer.toArray(bufferDaysOccuped))      
-    //         }
-    //     }
-    // };
-
     public query func getAmenities({housingId: HousingId}): async ?Types.Amenities {
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         switch housing {
@@ -901,11 +872,12 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         result
     };
 
-    func calculatePrice(price: ?Types.Price, days: Nat): Nat {
+    func calculatePrice(price: ?Types.Price, daysInt: Int): Nat {
         switch price {
             case null {assert (false); 0 };
             case (?price) {
                 var currentDiscount = 0;
+                let days = Int.abs(daysInt);
                 let discounts = Array.sort<{minimumDays: Nat; discount: Nat}>(
                     price.discountTable,
                     func (a, b) = if (a.minimumDays < b.minimumDays) { #less } else { #greater } 
@@ -934,15 +906,22 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         } 
     };
 
-    public shared ({ caller = requester }) func requestReservation({housingId: HousingId; checkIn: Nat; checkOut: Nat; guest: Text}): async TransactionResponse {
+    public shared ({ caller = requester }) func requestReservation(data: Types.ReservationDataInput): async TransactionResponse {
+        let {housingId; guest; email; phone; checkIn; checkOut}: Types.ReservationDataInput = data;
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
-        if ( not Map.has<Principal, User>(users, phash, requester)) { return #Err(msg.NotUser)};
+        if ( not Map.has<Principal, User>(users, phash, requester) ) { 
+            return #Err(msg.NotUser)
+        };
+        if ( checkIn >= checkOut or checkIn < 0) { 
+            return #Err(msg.ErrorSetHoursCheckInCheckOut) 
+        };
+
         switch housing {
             case null { #Err(msg.NotHousing)};
             case ( ?housing ) {
                 if(checkDisponibility(housingId, checkIn, checkOut)){
                     lastReservationId += 1;
-                    let amount = calculatePrice(housing.price, checkOut - checkIn);
+                    let amount = calculatePrice(housing.price,  Prim.abs(checkOut - checkIn));
                     let reservation: Reservation = {
                         date = now();
                         housingId;
@@ -951,6 +930,8 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                         checkIn;
                         checkOut;
                         guest;
+                        email; 
+                        phone;
                         confirmated = false;
                         amount;
                         dataTransaction = null;

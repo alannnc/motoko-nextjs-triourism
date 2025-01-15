@@ -44,7 +44,7 @@ dfx canister call backend updatePrices '(record {
 echo "Alberto crea un tipo de habitacion a partir de su housing de id 1 indicando que existen 4 ... "
 dfx canister call backend cloneHousingWithProperties '(record {
   housingId = 1 : nat;
-  qty = 4 : nat;
+  qty = 1 : nat;
   housingTypeInit = record {
     extraGuest = 2 : nat;
     bathroom = record {
@@ -56,7 +56,7 @@ dfx canister call backend cloneHousingWithProperties '(record {
     };
     beds = vec { variant { Matrimonial = 1 : nat } };
     maxGuest = 4 : nat;
-    nameType = "Standard";
+    nameType = "Medium";
   };
 })'
 
@@ -154,7 +154,9 @@ dfx canister call backend requestReservation '(record {
   housingId = 1; 
   checkIn = 1; 
   checkOut = 11; 
-  guest = "Mario"
+  guest = "Mario";
+  email = "mario@gmil.com";
+  phone = 542236676567
 })'
 
 
@@ -165,7 +167,9 @@ dfx canister call backend requestReservation '(record {
   housingId = 1; 
   checkIn = 12; 
   checkOut = 15; 
-  guest = "Lucila"
+  guest = "Lucila";
+  email = "cucila@gmil.com";
+  phone = 556578787998
 })'
 
 # ------------ Usuario 6 pide reserva para dentro de 9 dias y se queda 2
@@ -175,7 +179,9 @@ dfx canister call backend requestReservation '(record {
   housingId = 1; 
   checkIn = 9; 
   checkOut = 11; 
-  guest = "Carlos"
+  guest = "Carlos";
+  email = "carlos@gmil.com";
+  phone = 536657090
 })'
 
 # ------------ Usuario 4 confirma la reserva
