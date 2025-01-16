@@ -38,6 +38,34 @@ dfx canister call backend updatePrices '(record {
     }
 })'
 
+dfx canister call backend setAmenities '( record { 
+    freeWifi = false; 
+    airCond = false; 
+    flatTV = false; 
+    minibar = false; 
+    safeBox = false; 
+    roomService = false; 
+    premiumLinen = false; 
+    ironBoard = false; 
+    privateBath = false; 
+    hairDryer = false; 
+    hotelRest = false; 
+    barLounge = false; 
+    buffetBrkfst = false; 
+    lobbyCoffee = false; 
+    catering = false; 
+    specialMenu = false; 
+    outdoorPool = false; 
+    spaWellness = false; 
+    gym = false; 
+    jacuzzi = false; 
+    gameRoom = false; 
+    tennisCourt = false; 
+    natureTrails = true; 
+    custom = vec {}; 
+}, 1)'
+
+
 
 
 #Assing housing Type
@@ -47,16 +75,16 @@ dfx canister call backend cloneHousingWithProperties '(record {
   qty = 1 : nat;
   housingTypeInit = record {
     extraGuest = 2 : nat;
-    bathroom = record {
+    bathroom = vec {record {
       shower = true;
       sink = true;
       toilette = true;
       isShared = false;
       bathtub = true;
-    };
+    }};
     beds = vec { variant { Matrimonial = 1 : nat } };
     maxGuest = 4 : nat;
-    nameType = "Medium";
+    nameType = "Standard";
   };
 })'
 
@@ -152,7 +180,7 @@ dfx canister call backend signUpAsUser '(record {
 dfx identity use 0000TestUser4
 dfx canister call backend requestReservation '(record {
   housingId = 1; 
-  checkIn = 1; 
+  checkIn = 7; 
   checkOut = 11; 
   guest = "Mario";
   email = "mario@gmil.com";

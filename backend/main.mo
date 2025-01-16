@@ -171,6 +171,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         properties: ?HousingType = null;
         housingType: ?Text = null;
         amenities = null;
+        encodedAmenities = 0;
         reviews = List.nil<Nat>();
     };
 
@@ -493,11 +494,12 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                 if(caller != housing.owner) {
                     return #Err(msg.CallerNotHousingOwner);
                 };
+                let encodedAmenities = encodeAmenities(amenities);
                 ignore Map.put<HousingId, Housing>(
                     housings, 
                     nhash, 
                     housingId, 
-                    {housing with amenities = ?amenities});
+                    {housing with amenities = ?amenities; encodedAmenities});
                 #Ok
             }
         } 
@@ -614,6 +616,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                             address = housing.address;
                             thumbnail = housing.thumbnail;
                             price = housing.price;
+                            encodedAmenities = housing.encodedAmenities
                         }
                     )
                 }
@@ -662,9 +665,52 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     };
 
     public shared query ({ caller }) func getMyActiveHousings({page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate{
-        getHousingsPaginateByOwner(caller, page, qtyPerPage, true)
-        
+        getHousingsPaginateByOwner(caller, page, qtyPerPage, true)      
     };
+
+    func encodeAmenities(a: Types.Amenities): Nat {
+        var result = 1: Nat; //el bit mas significativo se ignora en la decodificación
+        // El orden de los elementos de este array tiene que coincidir con el array para la decodificacion 
+        let arrayBools = [
+            a.freeWifi,
+            a.airCond,
+            a.flatTV,
+            a.minibar,
+            a.safeBox,
+            a.roomService,
+            a.premiumLinen,
+            a.ironBoard,
+            a.privateBath,
+            a.hairDryer,
+            a.hotelRest,
+            a.barLounge,
+            a.buffetBrkfst,
+            a.lobbyCoffee,
+            a.catering,
+            a.specialMenu,
+            a.outdoorPool,
+            a.spaWellness,
+            a.gym,
+            a.jacuzzi,
+            a.gameRoom,
+            a.tennisCourt,
+            a.natureTrails,
+        ];
+        for(i in arrayBools.vals()) { result := result * 2 + (if i { 1 } else { 0 }) };
+        result
+        //Ejemplo aproximado para llenar array de Booleanos a partir de result y el array de amenidades equivalente:
+        // let amenities = ["freeWifi", "airCond" ... etcetera]
+        // let amenitiesTrue = [];
+        // for (let i = 0; i < amenities.length; i++) {
+        //     if(result % 2) { amenitiesTrue.push = amenities[i] };
+        //     result Math.floor(result / 2);
+        // }
+
+    };
+
+    // public func filterHousing(filters: Filter) {
+        
+    // };
 
     public shared query func getHousingByHostUser({host: Principal; page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate{
         getHousingsPaginateByOwner(host, page, qtyPerPage, true)
@@ -795,7 +841,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         {pendings = Buffer.toArray(bufferReservations); pendingReservUpdate = Buffer.toArray(bufferReservUpdate)}
     };
 
-    func checkDisponibility(housingId: HousingId, chechIn: Int, checkOut: Int): Bool {
+    func checkDisponibility(housingId: HousingId, chechIn: Nat, checkOut: Nat): Bool {
         switch (Map.get<HousingId, Housing>(housings, nhash, housingId)) {
             case (?housing) { 
                 if(not housing.active) { return false } 
@@ -919,7 +965,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         switch housing {
             case null { #Err(msg.NotHousing)};
             case ( ?housing ) {
-                if(checkDisponibility(housingId, checkIn, checkOut)){
+                if(checkDisponibility(housingId, Prim.abs(checkIn), Prim.abs(checkOut))){
                     lastReservationId += 1;
                     let amount = calculatePrice(housing.price,  Prim.abs(checkOut - checkIn));
                     let reservation: Reservation = {
