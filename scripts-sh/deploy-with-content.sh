@@ -42,13 +42,13 @@ dfx canister call backend setAmenities '( record {
     freeWifi = false; 
     airCond = false; 
     flatTV = false; 
-    minibar = false; 
+    minibar = true; 
     safeBox = false; 
     roomService = false; 
     premiumLinen = false; 
     ironBoard = false; 
     privateBath = false; 
-    hairDryer = false; 
+    hairDryer = true; 
     hotelRest = false; 
     barLounge = false; 
     buffetBrkfst = false; 
@@ -58,10 +58,10 @@ dfx canister call backend setAmenities '( record {
     outdoorPool = false; 
     spaWellness = false; 
     gym = false; 
-    jacuzzi = false; 
+    jacuzzi = true; 
     gameRoom = false; 
     tennisCourt = false; 
-    natureTrails = true; 
+    natureTrails = false; 
     custom = vec {}; 
 }, 1)'
 

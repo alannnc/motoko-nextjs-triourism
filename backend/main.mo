@@ -669,7 +669,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     };
 
     func encodeAmenities(a: Types.Amenities): Nat {
-        var result = 1: Nat; //el bit mas significativo se ignora en la decodificación
+        var result = 0: Nat; //el bit mas significativo se ignora en la decodificación
         // El orden de los elementos de este array tiene que coincidir con el array para la decodificacion 
         let arrayBools = [
             a.freeWifi,
@@ -696,15 +696,21 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             a.tennisCourt,
             a.natureTrails,
         ];
-        for(i in arrayBools.vals()) { result := result * 2 + (if i { 1 } else { 0 }) };
+        for(i in arrayBools.vals()) { result := result * 2  + (if i { 1 } else { 0 })};
         result
-        //Ejemplo aproximado para llenar array de Booleanos a partir de result y el array de amenidades equivalente:
-        // let amenities = ["freeWifi", "airCond" ... etcetera]
-        // let amenitiesTrue = [];
-        // for (let i = 0; i < amenities.length; i++) {
-        //     if(result % 2) { amenitiesTrue.push = amenities[i] };
-        //     result Math.floor(result / 2);
-        // }
+        //  Ejemplo aproximado para llenar array de Booleanos a partir de result y el array de amenidades equivalente en el front:
+        //  let amenities = ["freeWifi", "airCond" ... etcetera]
+        //  let amenitiesTrue = [];
+        //  for (let i = 0; i < amenities.length; i++) {
+        //      if ((encodedAmenities & (1 << amenities.length - 1 - i) != 0)){
+        //          amenitiesTrue.push(amenities[i]);
+        //      }
+        //  }
+        //  //Ejemplo para filtar por jacuzzi
+        //  let jacuzzi =  (encodedAmenities >> (amenities.length - 19 -1)) % 2 === 1;
+        //  //Ejemplo para filtrar por jasuzzi y minibar:
+        //  let jacuzziYMiniBar =  (encodedAmenities & (1 << amenities.length - 1 - 20) != 0) and
+        //  (encodedAmenities & (1 << amenities.length - 1 - 3) != 0);
 
     };
 
