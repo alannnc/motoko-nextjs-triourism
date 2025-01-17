@@ -11,6 +11,7 @@ module {
         lastName: Text;
         phone: ?Nat;
         email: Text;
+        referralBy: ?Nat;
     };
 
     public type UserData = {

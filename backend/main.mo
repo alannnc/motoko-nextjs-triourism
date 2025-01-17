@@ -70,6 +70,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     stable var lastReviewId = 0;
     stable var lastReservationId = 0;
 
+
     // Prueba Amenidades dinamicas
     stable var amenities: [Text] = Types.amenitiesArray;
 
@@ -82,12 +83,13 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         // TODO Modificar encodedAmenities en cada housing
     };
 
-    
     ///////////////////////////////////// Login Update functions ////////////////////////////////////////
 
     public shared ({ caller }) func signUpAsUser(data: Types.SignUpData) : async SignUpResult {
         if(Principal.isAnonymous(caller)) { return #Err(msg.NotUser) };
-
+        if (Map.has<Principal, User>(users,phash, caller )){
+            return #Err("The caller is linked to an existing User Host")
+        };
         let user = Map.get(users, phash, caller);
         switch user {
             case (?User) { #Err("User already exists") };
@@ -106,6 +108,9 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
 
     public shared ({ caller }) func signUpAsHost(data: Types.SignUpData) : async SignUpResult {
         if(Principal.isAnonymous(caller)) { return #Err(msg.NotUser) };
+        if (Map.has<Principal, User>(users,phash, caller )){
+            return #Err("The caller is linked to an existing User")
+        };
         let hostUser = Map.get(hostUsers, phash, caller);
         switch hostUser {
             case (?User) { #Err("Host User already exists") };
@@ -139,6 +144,9 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         };
     };
 
+    public shared query ({ caller }) func getMyReferralCode(): async Nat32 {
+        Principal.hash(caller)
+    };
 
     //////////////////////////////// CRUD Data User ///////////////////////////////////
 
@@ -562,7 +570,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         }
     };
 
-    public query func filterHousings({filterCode: Nat64; page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate {
+    public query func filterByAmenities({filterCode: Nat64; page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate {
         let filteredHosuings = Array.filter<Housing>(
             Iter.toArray<Housing>(Map.vals<HousingId, Housing>(housings)),
             func h = h.active and ((h.encodedAmenities & filterCode) == filterCode)
@@ -579,6 +587,22 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         #Ok{ array; hasNext }
     };
 
+    // public query func filterByProperties({filterCode: Nat64; page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate {
+    //     let filteredHosuings = Array.filter<Housing>(
+    //         Iter.toArray<Housing>(Map.vals<HousingId, Housing>(housings)),
+    //         func h = h.active and ((h.encodedAmenities & filterCode) == filterCode)
+    //     );
+    //     if(filteredHosuings.size() < page * qtyPerPage){
+    //         return #Err(msg.PaginationOutOfRange)
+    //     };
+    //     let (size: Nat, hasNext: Bool) = if (filteredHosuings.size() >= (page + 1)  * qtyPerPage){
+    //         (qtyPerPage, filteredHosuings.size() > (page + 1))
+    //     } else {
+    //         (filteredHosuings.size() % qtyPerPage, false)
+    //     };
+    //     let array = Array.subArray<Housing>(filteredHosuings, page * qtyPerPage, size);
+    //     #Ok{ array; hasNext }
+    // };
 
 
     public shared query ({ caller }) func getCalendarById(id: Nat): async {#Ok: Calendary; #Err: Text}{
