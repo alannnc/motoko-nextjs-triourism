@@ -181,7 +181,7 @@ dfx identity use 0000TestUser4
 dfx canister call backend requestReservation '(record {
   housingId = 1; 
   checkIn = 7; 
-  checkOut = 11; 
+  checkOut = 9; 
   guest = "Mario";
   email = "mario@gmil.com";
   phone = 542236676567

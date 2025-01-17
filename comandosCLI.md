@@ -87,7 +87,37 @@ dfx canister call backend updatePrices '(record {
     }
 })'
 ```
+Set amenities
 
+```
+dfx canister call backend setAmenities '( record { 
+    freeWifi = false; 
+    airCond = false; 
+    flatTV = false; 
+    minibar = true; 
+    safeBox = false; 
+    roomService = false; 
+    premiumLinen = false; 
+    ironBoard = false; 
+    privateBath = true; 
+    hairDryer = false; 
+    hotelRest = false; 
+    barLounge = false; 
+    buffetBrkfst = false; 
+    lobbyCoffee = false; 
+    catering = true; 
+    specialMenu = false; 
+    outdoorPool = false; 
+    spaWellness = false; 
+    gym = false; 
+    jacuzzi = false; 
+    gameRoom = true; 
+    tennisCourt = false; 
+    natureTrails = false; 
+    custom = vec {}; 
+}, 1)'
+
+```
 Solicitud de reserva
 
 ```

@@ -67,7 +67,8 @@ module {
         properties: ?HousingType;
         housingType: ?Text;
         amenities: ?Amenities;
-        encodedAmenities: Nat;
+        encodedAmenities: Nat64;
+        encodedAmenities2: Nat64; // Prueba
         reviews: List.List<Nat>;
         calendary: Calendary;
         reservationsPending: [Nat];
@@ -94,7 +95,7 @@ module {
         address: Location;
         thumbnail: Blob;
         price: ?Price;
-        encodedAmenities: Nat;
+        encodedAmenities: Nat64;
     };
 
     public type HousingResponse = {
@@ -133,6 +134,7 @@ module {
     };
 
     public type Amenities = {
+        //
         freeWifi: Bool;
         airCond: Bool;         // Aire acondicionado
         flatTV: Bool;          // TV de pantalla plana
@@ -159,31 +161,9 @@ module {
         custom: [{amenitieName: Text; value: Bool}];
     };
 
-    public type Amenities2 = {
-        #freeWifi;
-        #airCond;         // Aire acondicionado
-        #flatTV;          // TV de pantalla plana
-        #minibar;
-        #safeBox;         // Caja de seguridad
-        #roomService;     // Servicio a la habitación
-        #premiumLinen;    // Ropa de cama premium
-        #ironBoard;       // Plancha y tabla de planchar
-        #privateBath;     // Baño privado con artículos de tocador
-        #hairDryerl;       // Secador de pelo
-        #hotelRest;       // Restaurante en el hotel
-        #barLounge;       // Bar y lounge
-        #buffetBrkfst;    // Desayuno buffet
-        #lobbyCoffee;     // Servicio de café/té en el lobby
-        #catering;        // Servicio de catering para eventos
-        #specialMenu;     // Menú para dietas especiales (bajo solicitud)
-        #outdoorPool;     // Piscina al aire libre
-        #spaWellness;     // Spa y centro de bienestar
-        #gym;
-        #jacuzzi;
-        #gameRoom;        // Salón de juegos
-        #tennisCourt;     // Pista de tenis
-        #natureTrails;    // Acceso a senderos naturales
-    };
+    public type Amenities2 = [Text]; // Eventualmente se pueden establecer las amenidades dinamicamente
+    public let amenitiesArray = ["freeWifi", "airCond", "flatTV", "minibar", "safeBox", "roomService", "premiumLinen", "ironBoard", "privateBath", "hairDryer", "hotelRest", "barLounge",
+        "buffetBrkfst", "lobbyCoffee", "catering", "specialMenu", "outdoorPool", "spaWellness", "gym", "jacuzzi", "gameRoom", "tennisCourt", "natureTrails"];
 
     public type Location = {
         country: Text;

@@ -16,6 +16,7 @@ import Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
 import Nat64 "mo:base/Nat64";
 import Text "mo:base/Text";
+import Iter "mo:base/Iter";
 import Indexer_icp "./indexer_icp_token";
 import AccountIdentifier "mo:account-identifier";
 
@@ -68,6 +69,19 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     stable var lastHousingId = 0;
     stable var lastReviewId = 0;
     stable var lastReservationId = 0;
+
+    // Prueba Amenidades dinamicas
+    stable var amenities: [Text] = Types.amenitiesArray;
+
+    public shared ({ caller }) func addAmenities(a: Text): async (){
+        assert(isAdmin(caller));
+        // TODO Normalizar cadenas de texto y evitar duplicados
+        let setAmenities = Set.fromIter<Text>(amenities.vals(), thash);
+        ignore Set.put<Text>(setAmenities, thash, a);
+        amenities := Set.toArray<Text>(setAmenities);
+        // TODO Modificar encodedAmenities en cada housing
+    };
+
     
     ///////////////////////////////////// Login Update functions ////////////////////////////////////////
 
@@ -171,7 +185,8 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         properties: ?HousingType = null;
         housingType: ?Text = null;
         amenities = null;
-        encodedAmenities = 0;
+        encodedAmenities: Nat64 = 0;
+        encodedAmenities2: Nat64 = 0;
         reviews = List.nil<Nat>();
     };
 
@@ -504,6 +519,26 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             }
         } 
     };
+
+    ///// Prueba 
+    
+    public shared ({ caller }) func setAmenities2(housingId: Nat, encodedAmenities2: Nat64): async {#Ok; #Err: Text} {
+       let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
+        switch housing {
+            case null { #Err(msg.NotHousing)};
+            case ( ?housing ) {
+                if(caller != housing.owner) {
+                    return #Err(msg.CallerNotHousingOwner);
+                };
+                ignore Map.put<HousingId, Housing>(
+                    housings, 
+                    nhash, 
+                    housingId, 
+                    {housing with encodedAmenities2});
+                #Ok
+            }
+        } 
+    };
     
     ///////////////////////////////////////// Getters ////////////////////////////////////////
 
@@ -526,6 +561,25 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             hasNext = ((page + 1) * qtyPerPage < array.size())
         }
     };
+
+    public query func filterHousings({filterCode: Nat64; page: Nat; qtyPerPage: Nat}): async ResultHousingPaginate {
+        let filteredHosuings = Array.filter<Housing>(
+            Iter.toArray<Housing>(Map.vals<HousingId, Housing>(housings)),
+            func h = h.active and ((h.encodedAmenities & filterCode) == filterCode)
+        );
+        if(filteredHosuings.size() < page * qtyPerPage){
+            return #Err(msg.PaginationOutOfRange)
+        };
+        let (size: Nat, hasNext: Bool) = if (filteredHosuings.size() >= (page + 1)  * qtyPerPage){
+            (qtyPerPage, filteredHosuings.size() > (page + 1))
+        } else {
+            (filteredHosuings.size() % qtyPerPage, false)
+        };
+        let array = Array.subArray<Housing>(filteredHosuings, page * qtyPerPage, size);
+        #Ok{ array; hasNext }
+    };
+
+
 
     public shared query ({ caller }) func getCalendarById(id: Nat): async {#Ok: Calendary; #Err: Text}{
         switch (Map.get<HousingId, Housing>(housings, nhash, id)) {
@@ -668,8 +722,8 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         getHousingsPaginateByOwner(caller, page, qtyPerPage, true)      
     };
 
-    func encodeAmenities(a: Types.Amenities): Nat {
-        var result = 0: Nat; //el bit mas significativo se ignora en la decodificación
+    func encodeAmenities(a: Types.Amenities): Nat64 {
+        var result = 0: Nat64; //el bit mas significativo se ignora en la decodificación
         // El orden de los elementos de este array tiene que coincidir con el array para la decodificacion 
         let arrayBools = [
             a.freeWifi,
@@ -747,7 +801,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                         func x {{
                             updateArray[x] with 
                             checkIn = updateArray[x].checkIn - daysSinceLastUpdate;
-                            checkOut = updateArray[x].checkOut -daysSinceLastUpdate    
+                            checkOut = updateArray[x].checkOut - daysSinceLastUpdate    
                         }}
                     );
                     let busy = getUnaviabilityFromReservations(#ReservationType(updateArray));
@@ -881,7 +935,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         };            
     };
     ////////// view reservations pendding /////////////////
-    public query func endingReserv(): async () {
+    public query func pendingReserv(): async () {
         print(debug_show(Map.toArray<Nat, Reservation>(reservationsPendingConfirmation)))
     };
 
@@ -982,7 +1036,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                         checkIn;
                         checkOut;
                         guest;
-                        email; 
+                        email;
                         phone;
                         confirmated = false;
                         amount;
