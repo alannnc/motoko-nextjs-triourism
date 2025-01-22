@@ -1,7 +1,7 @@
 import Prim "mo:⛔";
 import Map "mo:map/Map";
 import Set "mo:map/Set";
-import { phash; nhash; thash } "mo:map/Map";
+import { phash; nhash; n32hash; thash } "mo:map/Map";
 import Principal "mo:base/Principal";
 import Buffer "mo:base/Buffer";
 import Blob "mo:base/Blob";
@@ -70,6 +70,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     stable var lastReviewId = 0;
     stable var lastReservationId = 0;
 
+    stable let referralCodes = Map.new<Nat32, Types.ReferralBook>();
 
     // Prueba Amenidades dinamicas
     stable var amenities: [Text] = Types.amenitiesArray;
@@ -94,14 +95,20 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         switch user {
             case (?User) { #Err("User already exists") };
             case null {
-                let newUser: User = {
-                    data with
-                    verified = true;
-                    reviewsIssued = List.nil<Nat>();
-                    score = 0;
-                };
-                ignore Map.put(users, phash, caller, newUser);
-                #Ok( newUser );
+
+                let referralProcess = putRefered(data.referralBy, caller, #User(#Level1));
+                if (referralProcess){
+                    let newUser: User = {
+                        data with
+                        verified = true;
+                        reviewsIssued = List.nil<Nat>();
+                        score = 0;
+                    };
+                    ignore Map.put(users, phash, caller, newUser);
+                    #Ok( newUser );
+                } else {
+                    #Err("Invalid referral code")
+                }
             };
         };
     };
@@ -115,15 +122,20 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         switch hostUser {
             case (?User) { #Err("Host User already exists") };
             case null {
-                let newHostUser: HostUser = {
-                    data with
-                    verified = true;
-                    score = 0;
-                    housingIds = List.nil<Nat>();
-                    housingTypes =  Map.new<Text, HousingType>();
-                };
-                ignore Map.put(hostUsers, phash, caller, newHostUser);
-                #Ok(newHostUser);
+                let referralProcess = putRefered(data.referralBy, caller, #User(#Level1));
+                if (referralProcess){
+                    let newHostUser: HostUser = {
+                        data with
+                        verified = true;
+                        score = 0;
+                        housingIds = List.nil<Nat>();
+                        housingTypes =  Map.new<Text, HousingType>();
+                    };
+                    ignore Map.put(hostUsers, phash, caller, newHostUser);
+                    #Ok(newHostUser);
+                } else {
+                    #Err("Invalid referral code")
+                }
             };
         };
     };
@@ -144,9 +156,52 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         };
     };
 
-    public shared query ({ caller }) func getMyReferralCode(): async Nat32 {
-        Principal.hash(caller)
+    public shared ({ caller }) func getMyReferralCode(): async Nat32 {
+        let code = (Principal.hash(caller));
+        let referralBook = Map.get<Nat32, Types.ReferralBook>(referralCodes, n32hash, code);
+        switch referralBook {
+            case null {
+                let book: Types.ReferralBook = {
+                    owner = caller; 
+                    refereds: [Types.Refered] = [];
+                };
+                ignore Map.put<Nat32, Types.ReferralBook>(referralCodes, n32hash, code, book);
+            };
+            case _ {}
+        };  
+        code
     };
+
+    public shared ({ caller }) func getMyReferralBook(): async ?Types.ReferralBook{
+        Map.get<Nat32, Types.ReferralBook>(referralCodes, n32hash, Principal.hash(caller));
+    };
+
+    func putRefered(code: ?Nat32, user: Principal, kind: Types.ReferalKind): Bool {
+        switch (code) {
+            case null { true };
+            case ( ?code ) {
+                let referralBook = Map.get<Nat32, Types.ReferralBook>(referralCodes, n32hash, code);
+                switch referralBook {
+                    case null { false };
+                    case (?referralBook) {
+                        let refered = { date = now(); user; kind };
+                        let refereds = Prim.Array_tabulate<Types.Refered>(
+                            referralBook.refereds.size() +1,
+                            func x = if( x == 0 ) { refered } else { referralBook.refereds[x -1]}
+                        );
+                        ignore Map.put<Nat32, Types.ReferralBook>(
+                            referralCodes, 
+                            n32hash, 
+                            code,
+                            {referralBook with refereds }
+                        );
+                        true
+                    }
+                };
+            }
+        }   
+    };
+
 
     //////////////////////////////// CRUD Data User ///////////////////////////////////
 

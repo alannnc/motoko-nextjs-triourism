@@ -12,7 +12,8 @@ dfx canister call backend signUpAsHost '(record {
     firstName="Alberto";
     lastName="Campos";
     email="null";
-    phone = opt 542238780892
+    phone = opt 542238780892;
+    referralBy = null;
 })'
 # CreateHousing 1
 echo "Alberto registra un housing ... "
@@ -119,6 +120,9 @@ dfx canister call backend createHousing '(record {
     thumbnail = blob "Qk06AAAAAAAAADYAAAAoAAAAAQAAAAEAAAABAAEAALKLKAKHUJHAA"
 })'
 
+echo codigo de referidos de alberto...
+export albertoCode=$(dfx canister call backend getMyReferralCode)
+echo $albertoCode
 
 
 
@@ -141,7 +145,8 @@ dfx canister call backend signUpAsHost '(record {
     firstName="Claudia";
     lastName="Gimenez";
     email="claugimenez@gmail.com";
-    phone = opt 558789878522
+    # phone = opt 558789878522;
+    referralCode = $albertoCode
 })'
 
 # ------------ Usuario Host 4 -------------- 
@@ -152,7 +157,8 @@ dfx canister call backend signUpAsUser '(record {
     firstName="Mario";
     lastName="Pappa";
     email="mariopapa@gmail.com";
-    phone = opt 542235227692
+    phone = opt 542235227692;
+    referralCode = opt ${albertoCode};
 })'
 
 # ------------ Usuario Host 5 -------------- 

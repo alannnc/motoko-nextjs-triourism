@@ -11,7 +11,7 @@ module {
         lastName: Text;
         phone: ?Nat;
         email: Text;
-        referralBy: ?Nat;
+        referralBy: ?Nat32;
     };
 
     public type UserData = {
@@ -181,6 +181,32 @@ module {
         base: Nat;
         discountTable: [{minimumDays: Nat; discount: Nat}]; // Ej. [{minimumDays = 5; discount = 10}, {minimumDays = 15; discount = 15}]
     };
+
+    ////////////////////////////// Referrals ///////////////////////////////////
+
+    public type Refered = {
+        date: Int;
+        user: Principal; 
+        kind: ReferalKind
+    };
+
+    public type ReferalKind = {
+        #User: StatusReferral; 
+        #Host: StatusReferral
+    };
+
+    public type ReferralBook = {
+        owner: Principal;
+        refereds: [Refered];
+    };
+    public type StatusReferral = {
+        #Level1;
+        #Level2;
+        #Level3;
+        #Level4;
+        #Level5;
+    };
+
 
     ////////////////////////////// Reservations ////////////////////////////////
 
