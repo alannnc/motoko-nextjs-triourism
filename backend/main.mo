@@ -1,24 +1,27 @@
 import Prim "mo:⛔";
-import Map "mo:map/Map";
-import Set "mo:map/Set";
-import { phash; nhash; n32hash; thash } "mo:map/Map";
-import Principal "mo:base/Principal";
-import Buffer "mo:base/Buffer";
-import Blob "mo:base/Blob";
-import Types "types";
-import { now } "mo:base/Time";
-import msg "constants";
-import { print } "mo:base/Debug";
 import Array "mo:base/Array";
+import Blob "mo:base/Blob";
+import Buffer "mo:base/Buffer";
 import Int "mo:base/Int";
+import Iter "mo:base/Iter";
 import List "mo:base/List";
 import Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
 import Nat64 "mo:base/Nat64";
+import Principal "mo:base/Principal";
 import Text "mo:base/Text";
-import Iter "mo:base/Iter";
+import { now } "mo:base/Time";
+import { print } "mo:base/Debug";
+
+import Map "mo:map/Map";
+import Set "mo:map/Set";
+import { phash; nhash; n32hash; thash } "mo:map/Map";
 import Indexer_icp "./indexer_icp_token";
 import AccountIdentifier "mo:account-identifier";
+
+import Types "types";
+import msg "constants";
+
 
 shared ({ caller = DEPLOYER }) actor class Triourism () = this {
 
@@ -87,7 +90,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     ///////////////////////////////////// Login Update functions ////////////////////////////////////////
 
     public shared ({ caller }) func signUpAsUser(data: Types.SignUpData) : async SignUpResult {
-        if(Principal.isAnonymous(caller)) { return #Err(msg.NotUser) };
+        if(Principal.isAnonymous(caller)) { return #Err(msg.Anonymous) };
         if (Map.has<Principal, User>(users,phash, caller )){
             return #Err("The caller is linked to an existing User Host")
         };
@@ -114,7 +117,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     };
 
     public shared ({ caller }) func signUpAsHost(data: Types.SignUpData) : async SignUpResult {
-        if(Principal.isAnonymous(caller)) { return #Err(msg.NotUser) };
+        if(Principal.isAnonymous(caller)) { return #Err(msg.Anonymous) };
         if (Map.has<Principal, User>(users,phash, caller )){
             return #Err("The caller is linked to an existing User")
         };
@@ -1216,6 +1219,11 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             }
         }
         
+    };
+    
+
+    public shared ({ caller }) func cancelReservation(reservationId: Nat): async (){
+        //TODO: Implementar cancelacion de reservas
     };
 
     // public shared query ({ caller }) func getReservations({housingId: Nat}): async {#Ok: [(Nat, Reservation)]; #Err: Text}{
