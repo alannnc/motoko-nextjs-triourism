@@ -21,6 +21,7 @@ module {
 
     public type User = SignUpData and {
         verified: Bool;
+        reservations: List.List<Nat>;
         score: Nat;
         reviewsIssued: List.List<Nat>;
     };
@@ -224,15 +225,32 @@ module {
         phone: Nat;
     };
 
+    public type ReservationStatus = {
+        #Pending;
+        #Confirmed;
+        #Canceled;
+        #InProgress;
+        #Ended;
+    };
+
     public type Reservation = ReservationDataInput and {
         date: Int;
+        timestampCheckIn: Int;
         // checkIn: Int;   // Int es un supertipo de Nat por lo tanto no hay conflicto con el checkIn que se "hereda" de ReservationDataInput y queda como Int
         // checkOut: Int;  // Idem
         reservationId: Nat;
         requester: Principal;
-        confirmated: Bool;
+        ownerHousing: Principal;
+        // confirmated: Bool;
+        status: ReservationStatus;
         amount: Nat;
-        dataTransaction: ?DataTransaction;
+        dataTransaction: DataTransaction;
+    };
+
+    public let NullTrx: DataTransaction = {
+        from = "";
+        to = "";
+        amount = 0
     };
 
     public type TransactionParams = {

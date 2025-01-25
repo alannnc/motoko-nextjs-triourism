@@ -145,8 +145,7 @@ dfx canister call backend signUpAsHost '(record {
     firstName="Claudia";
     lastName="Gimenez";
     email="claugimenez@gmail.com";
-    # phone = opt 558789878522;
-    referralCode = $albertoCode
+    phone = opt 558789878522;
 })'
 
 # ------------ Usuario Host 4 -------------- 
@@ -158,7 +157,6 @@ dfx canister call backend signUpAsUser '(record {
     lastName="Pappa";
     email="mariopapa@gmail.com";
     phone = opt 542235227692;
-    referralCode = opt ${albertoCode};
 })'
 
 # ------------ Usuario Host 5 -------------- 
@@ -211,7 +209,7 @@ dfx canister call backend requestReservation '(record {
 dfx identity use 0000TestUser6
 dfx canister call backend requestReservation '(record {
   housingId = 1; 
-  checkIn = 9; 
+  checkIn = 6; 
   checkOut = 11; 
   guest = "Carlos";
   email = "carlos@gmil.com";
@@ -223,9 +221,9 @@ dfx identity use 0000TestUser4
 dfx canister call backend confirmReservation '(record {
   reservationId  = 1; 
   txData = record {
-    to = ""; 
+    to = "walletHousingInRequest"; 
     amount = 4_000_000_000; 
-    from = ""
+    from = "walletUser"
   }
 })'
 
@@ -234,9 +232,9 @@ dfx identity use 0000TestUser2
 dfx canister call backend confirmReservation '(record {
   reservationId  = 2; 
   txData = record {
-    to = ""; 
+    to = "walletHousingInRequest"; 
     amount = 4_000_000_000; 
-    from = ""
+    from = "walletUser"
   }
 })'
 

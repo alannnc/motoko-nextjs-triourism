@@ -53,9 +53,17 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     // /////////////// WARNING modificar estas variables en produccion a los valores reales  ////
     let nanoSecPerDay = 30 * 1_000_000_000;             // Test Transcurso acelerado de los dias
     // let nanoSecPerDay = 86400 * 1_000_000_000;       // Valor real de nanosegundos en un dia
-    stable var TimeToPay = 15 * 1_000_000_000;          // Tiempo en nanosegundos para confirmar la reserva mediante pago
-    // stable var TimeToPay = 30 * 60 * 1_000_000_000;  // Tiempo sugerido 30 minutos
+    
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////// Global Configuration Parameters //////////////////////////////////////
+
+    stable var CancellationFeeCompensateBuyer: Nat64 = 5; //Percentage added to the buyer's refund
+    stable var TimeToPay = 15 * 1_000_000_000;          // Tiempo en nanosegundos para confirmar la reserva mediante pago
+    stable var MinDaysBeforeCheckinForCancellation = 4; // Minimo de dias antes del checkin para cancelar pagando CancellationFeeCompensateBuyer
+    // stable var TimeToPay = 30 * 60 * 1_000_000_000;  // Tiempo sugerido 30 minutos
+
+    //////////////////////////////// Core Data Structures ///////////////////////
      
     stable let admins = Set.new<Principal>();
     ignore Set.put<Principal>(admins, phash, DEPLOYER);
@@ -104,7 +112,8 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                     let newUser: User = {
                         data with
                         verified = true;
-                        reviewsIssued = List.nil<Nat>();
+                        reviewsIssued = List.nil<Nat>();    //Reservation IDs in reservationsPendingConfirmation
+                        reservations = List.nil<Nat>();     //Reservation IDs in reservationsHistory
                         score = 0;
                     };
                     ignore Map.put(users, phash, caller, newUser);
@@ -1108,21 +1117,24 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             case null { #Err(msg.NotHousing)};
             case ( ?housing ) {
                 if(checkDisponibility(housingId, Prim.abs(checkIn), Prim.abs(checkOut))){
-                    lastReservationId += 1;
+                    lastReservationId += 1; 
                     let amount = calculatePrice(housing.price,  Prim.abs(checkOut - checkIn));
                     let reservation: Reservation = {
                         date = now();
+                        timestampCheckIn = (now() - now() % nanoSecPerDay) + (checkIn * nanoSecPerDay) /* + (housing.checkIn * 60 * 60 * 1000000000) */;
                         housingId;
                         reservationId = lastReservationId;
                         requester;
+                        ownerHousing = housing.owner;
                         checkIn;
                         checkOut;
                         guest;
                         email;
                         phone;
-                        confirmated = false;
+                        // confirmated = false;
+                        status = #Pending;
                         amount;
-                        dataTransaction = null;
+                        dataTransaction = Types.NullTrx;
                     };
                     ignore Map.put<Nat, Reservation>(reservationsPendingConfirmation, nhash, lastReservationId, reservation);
                     putRequestReservationToHousing(housingId, lastReservationId);
@@ -1184,33 +1196,27 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                     switch housing {
                         case null { #Err(msg.NotHousing)};
                         case ( ?housing ) {
+                            let currentReservation = {   
+                                reservation with 
+                                status = #Confirmed; 
+                                dataTransaction = txData 
+                            };
                             let calendary = {
                                 housing.calendary with
                                 reservations = Prim.Array_tabulate<Reservation>(
                                 housing.calendary.reservations.size() + 1,
-                                func x = if (x == 0) { 
-                                    {   
-                                        reservation with 
-                                        confirmated = true; 
-                                        dataTransaction = ?txData 
-                                    } 
-                                    } else { 
-                                        housing.calendary.reservations[x - 1] 
-                                    }
-                                )
+                                func x = if (x == 0) { currentReservation } else { housing.calendary.reservations[x - 1] })
                             };
                             print(debug_show(calendary));
-                            let reservationsPending = Array.filter<Nat>(
-                                housing.reservationsPending,
-                                func x = x !=reservationId
-                            );
+                            let reservationsPending = Array.filter<Nat>(housing.reservationsPending, func x = x !=reservationId );
+                            ignore Map.put<Nat, Reservation>(reservationsHistory, nhash, reservationId, currentReservation);
                             ignore Map.put<HousingId, Housing>(
                                 housings, 
                                 nhash, 
                                 reservation.housingId, 
                                 { housing with calendary; reservationsPending }
                             );
-                            #Ok({ reservation with confirmated = true })
+                            #Ok(currentReservation)
                         }
                     }
                 } else {
@@ -1219,11 +1225,73 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             }
         }
         
-    };
-    
+    };    
 
-    public shared ({ caller }) func cancelReservation(reservationId: Nat): async (){
-        //TODO: Implementar cancelacion de reservas
+    public shared ({ caller }) func requestToCancelReservation(reservationId: Nat): async TransactionResponse {
+        
+        let reservation = Map.get<Nat, Reservation>(reservationsHistory, nhash, reservationId);
+        switch reservation {
+            case null { return #Err(msg.NotReservation)};
+            case ( ?reservation ) {
+                if (reservation.ownerHousing != caller) { 
+                    return #Err(msg.CallerNotHousingOwner # " corresponding to reservation # " # Nat.toText(reservationId)) 
+                };
+                if (reservation.status == #Confirmed) {
+                    if(reservation.timestampCheckIn <= now() + MinDaysBeforeCheckinForCancellation * nanoSecPerDay){
+                        return #Err("The reservation cannot be cancelled less than " # Nat.toText(MinDaysBeforeCheckinForCancellation) # " days");
+                    };
+                    let dataTransaction: TransactionParams = {
+                        to = reservation.dataTransaction.from;
+                        amount = reservation.dataTransaction.amount + (reservation.dataTransaction.amount * CancellationFeeCompensateBuyer) / 100;
+                    };
+                    #Ok({transactionParams = dataTransaction; reservationId = reservationId})
+                } else {
+                    let status = switch (reservation.status) {
+                        case (#Pending) { " Pending Reservation" };
+                        case (#Canceled) { " Canceled " };
+                        case ( #Ended ) { " Ended " };
+                        case _ {""}
+                    };
+                    #Err("Reservation status is " # status)
+                }
+            }
+        };
+    };
+
+    public shared ({ caller }) func confirmCancelReservation({reservationId: Nat; txData: DataTransaction}): async {#Ok: Reservation; #Err: Text}{
+        let reservation = Map.get<Nat, Reservation>(reservationsHistory, nhash, reservationId);
+        switch reservation {
+            case null { return #Err(msg.NotReservation)};
+            case ( ?reservation ) {
+                if (reservation.ownerHousing != caller) { 
+                    return #Err(msg.CallerNotHousingOwner # " corresponding to reservation # " # Nat.toText(reservationId)) 
+                };
+                if (reservation.status != #Confirmed) {
+                    return #Err("Reservation status is not confirmed")
+                };
+                let amountWithFee = reservation.dataTransaction.amount + (reservation.dataTransaction.amount * CancellationFeeCompensateBuyer) / 100;
+                if (await verifyTransaction(txData, amountWithFee)) {
+                    ignore Map.put<Nat, Reservation>(reservationsHistory, nhash, reservationId, {reservation with status = #Canceled});
+                    let housing = Map.get<HousingId, Housing>(housings, nhash, reservation.housingId);
+                    switch housing {
+                        case null { return #Err(msg.NotHousing)};
+                        case ( ?housing ) {
+                            let reservationsPending = Array.filter<Nat>(housing.reservationsPending, func x = x != reservationId);
+                            ignore Map.put<HousingId, Housing>(
+                                housings, 
+                                nhash, 
+                                reservation.housingId, 
+                                { housing with reservationsPending }
+                            );
+                            #Ok({reservation with status = #Canceled})
+                        }
+                    };
+
+                } else {
+                    #Err(msg.TransactionNotVerified)
+                }     
+            }
+        };
     };
 
     // public shared query ({ caller }) func getReservations({housingId: Nat}): async {#Ok: [(Nat, Reservation)]; #Err: Text}{
