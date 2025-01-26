@@ -53,3 +53,11 @@ En un contexto de MVP todos los usuarios serán inicializados por defecto como v
 #### Desventajas Para el Usuario:
 1. Que el usuario salga de la plataforma con las manos vacias pudiendo salir con un problema solucionado es algo evitable.
 
+#### Notas mentales. Volumen 2
+##### Comisiones por alojmiento
+Para las comisiones por alojamiento se puede establecer un porcentage del monto final, el cuál será deducido del monto recibido por el Housing en funcion del precio publicado.
+Para disminuir la friccion del usuario final, el cobro de la comisión puede hacerse directamente mediante un transfer_from luego de la recepcion de fondos en la wallet del Housing.
+Para poder proceder con ese transfer_from es necesario que la wallet del housing, haya firmado un approve y para eso puede ser conveniente hacerlo durante la creacion del Housing.
+En este proceso ya quedaría establecida la wallet del housing y además se habria adquirido la firma del approve en favor de la plataforma.
+Actualmente la wallet receptora de fondos de un housing se calcula a partir del Principal ID del owner de ese Housing, de manera tal que es unicamente ese principal quien puede moverlos, lo cual está bien pero para ello hay que implementar una funcion con la que el usuario pueda desde la plataforma hacer transferencias de esos tokens hacia una wallet o hacia algun exchange.  
+La opcion de conectar una wallet durante la creacion del housing elimina la necesidad de desarrollar un mecanismo de withdraw extra ya que el dueño del Housing puede visualizar su balance o ser notificado automaticamente cada vez que recibe el pago por algun alojamiento.

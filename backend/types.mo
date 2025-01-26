@@ -4,6 +4,15 @@ import List "mo:base/List";
 
 module {
 
+    ///////////////////////////////// Settings ///////////////////////////////////
+
+    public type Settings = {
+        cancellationFeeCompensateBuyer: Nat64;
+        minDaysBeforeCheckinForCancellation: Nat;
+        timeToPay: Nat;
+        reservationFee: Nat64;
+    };
+
     ///////////////////////////////// Users /////////////////////////////////////
 
     public type SignUpData = {
@@ -243,7 +252,7 @@ module {
         ownerHousing: Principal;
         // confirmated: Bool;
         status: ReservationStatus;
-        amount: Nat;
+        amount: Nat64;
         dataTransaction: DataTransaction;
     };
 

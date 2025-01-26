@@ -59,9 +59,11 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     ////////////////////////////////// Global Configuration Parameters //////////////////////////////////////
 
     stable var CancellationFeeCompensateBuyer: Nat64 = 5; //Percentage added to the buyer's refund
+    stable var ReservationFee: Nat64 = 10;                      //Percentage of the total reservation price
     stable var TimeToPay = 15 * 1_000_000_000;          // Tiempo en nanosegundos para confirmar la reserva mediante pago
-    stable var MinDaysBeforeCheckinForCancellation = 4; // Minimo de dias antes del checkin para cancelar pagando CancellationFeeCompensateBuyer
     // stable var TimeToPay = 30 * 60 * 1_000_000_000;  // Tiempo sugerido 30 minutos
+    stable var MinDaysBeforeCheckinForCancellation = 4; // Minimo de dias antes del checkin para cancelar una reserva pagando CancellationFeeCompensateBuyer
+    
 
     //////////////////////////////// Core Data Structures ///////////////////////
      
@@ -283,6 +285,25 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             ignore Set.remove<Principal>(admins, phash, p);
             #Ok
         } 
+    };
+    public shared ({ caller }) func settings(): async ?Types.Settings{
+        if(not isAdmin(caller)){ return null };
+        ?{
+            cancellationFeeCompensateBuyer =  CancellationFeeCompensateBuyer;
+            reservationFee = ReservationFee;
+            timeToPay = TimeToPay;
+            minDaysBeforeCheckinForCancellation = MinDaysBeforeCheckinForCancellation;
+        }
+    };
+
+    public shared ({ caller }) func updateSettings(config: Types.Settings): async Bool{
+        if(not isAdmin(caller)){ return false };
+        CancellationFeeCompensateBuyer := config.cancellationFeeCompensateBuyer;
+        ReservationFee := config.reservationFee;
+        TimeToPay := config.timeToPay;
+        MinDaysBeforeCheckinForCancellation := config.minDaysBeforeCheckinForCancellation;
+        true
+
     };
    
     /////////////////////////// Admin functions ////////////////////////////////////////////// 
@@ -672,7 +693,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     // };
 
 
-    public shared query ({ caller }) func getCalendarById(id: Nat): async {#Ok: Calendary; #Err: Text}{
+    public shared ({ caller }) func getCalendarById(id: Nat): async {#Ok: Calendary; #Err: Text}{
         switch (Map.get<HousingId, Housing>(housings, nhash, id)) {
             case (?housing) {
                 if (housing.owner != caller ) {return #Err(msg.CallerNotHousingOwner)};
@@ -1069,7 +1090,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         result
     };
 
-    func calculatePrice(price: ?Types.Price, daysInt: Int): Nat {
+    func calculatePrice(price: ?Types.Price, daysInt: Int): Nat64 {
         switch price {
             case null {assert (false); 0 };
             case (?price) {
@@ -1081,10 +1102,10 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                 );
                 for(discount in discounts.vals()){
                     print(debug_show(discount));
-                    if(days < discount.minimumDays) { return (price.base * days) - (price.base * days * currentDiscount / 100) };
+                    if(days < discount.minimumDays) { return Nat64.fromNat((price.base * days) - (price.base * days * currentDiscount / 100)) };
                     currentDiscount := discount.discount;   
                 };
-                return (price.base * days) - (price.base * days * currentDiscount / 100);
+                return Nat64.fromNat((price.base * days) - (price.base * days * currentDiscount / 100));
             }
         }
     };
@@ -1143,7 +1164,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                         // Se toma el account por defecto correspondiente al principal del dueño del Host
                         // Se puede establecer otro account proporcionado por el usuario 
                         to = blobToText(AccountIdentifier.accountIdentifier(housing.owner, AccountIdentifier.defaultSubaccount()));
-                        amount = Nat64.fromNat(amount);
+                        amount;
                     };
                     #Ok({transactionParams = dataTransaction; reservationId = lastReservationId});
                 } else {
@@ -1188,7 +1209,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         switch reservation {
             case null { #Err(msg.NotReservation)};
             case ( ?reservation ){
-                if (await verifyTransaction(txData, Nat64.fromNat(reservation.amount))){
+                if (await verifyTransaction(txData, reservation.amount)){
                     if(reservation.requester != caller) { 
                         return #Err(msg.CallerIsNotRequester # Nat.toText(reservationId))
                     };
@@ -1199,7 +1220,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                             let currentReservation = {   
                                 reservation with 
                                 status = #Confirmed; 
-                                dataTransaction = txData 
+                                dataTransaction = {txData with amount = reservation.amount}  
                             };
                             let calendary = {
                                 housing.calendary with
@@ -1223,12 +1244,11 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                     #Err(msg.TransactionNotVerified)
                 };        
             }
-        }
-        
+        }  
     };    
 
     public shared ({ caller }) func requestToCancelReservation(reservationId: Nat): async TransactionResponse {
-        
+        // TODO Actualizar el estado de las reservas en general, antes de proceder
         let reservation = Map.get<Nat, Reservation>(reservationsHistory, nhash, reservationId);
         switch reservation {
             case null { return #Err(msg.NotReservation)};
@@ -1286,12 +1306,27 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                             #Ok({reservation with status = #Canceled})
                         }
                     };
-
                 } else {
                     #Err(msg.TransactionNotVerified)
                 }     
             }
         };
+    };
+
+    public shared ({ caller }) func getReservationByDay(housingId: Nat, day: Nat): async {#Ok: Reservation; #Err: Text}{
+        let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
+        switch housing {
+            case null { return #Err(msg.NotHousing)};
+            case ( ?housing ) {
+                if (housing.owner != caller) { return #Err(msg.CallerNotHousingOwner)};
+                for (reservation in housing.calendary.reservations.vals()) {
+                    if (day >= reservation.checkIn and day < reservation.checkOut) {
+                        return #Ok(reservation)
+                    }
+                };
+                return #Err("No reservation for this day")
+            }
+        }
     };
 
     // public shared query ({ caller }) func getReservations({housingId: Nat}): async {#Ok: [(Nat, Reservation)]; #Err: Text}{
