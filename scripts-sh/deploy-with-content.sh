@@ -191,21 +191,30 @@ dfx canister call backend requestReservation '(record {
   phone = 542236676567
 })'
 
+# ------------ Usuario 4 confirma la reserva
 
+dfx canister call backend confirmReservation '(record {
+  reservationId  = 1; 
+  txData = record {
+    to = "walletHousingInRequest"; 
+    amount = 4_000_000_000; 
+    from = "walletUser"
+  }
+})'
 # ------------ Usuario 2 pide reserva para dentro de 12 dias y se queda 3
 
 dfx identity use 0000TestUser2
 dfx canister call backend requestReservation '(record {
   housingId = 1; 
-  checkIn = 9; 
-  checkOut = 11; 
+  checkIn = 12; 
+  checkOut = 14; 
   guest = "Lucila";
   email = "cucila@gmil.com";
   phone = 556578787998
 })'
 
 # ------------ Usuario 2 confirma la reserva
-dfx identity use 0000TestUser2
+
 dfx canister call backend confirmReservation '(record {
   reservationId  = 2; 
   txData = record {
@@ -220,32 +229,20 @@ dfx identity use 0000TestUser6
 dfx canister call backend requestReservation '(record {
   housingId = 1; 
   checkIn = 6; 
-  checkOut = 12; 
+  checkOut = 7; 
   guest = "Carlos";
   email = "carlos@gmil.com";
   phone = 536657090
 })'
 
-# ------------ Usuario 4 confirma la reserva
-dfx identity use 0000TestUser4
+
+
+# ------------ Usuario 6 confirma la reserva
 dfx canister call backend confirmReservation '(record {
-  reservationId  = 1; 
+  reservationId  = 3; 
   txData = record {
     to = "walletHousingInRequest"; 
     amount = 4_000_000_000; 
     from = "walletUser"
   }
 })'
-
-
-
-# ------------ Usuario 6 confirma la reserva
-# dfx identity use 0000TestUser6
-# dfx canister call backend confirmReservation '(record {
-#   reservationId  = 3; 
-#   txData = record {
-#     to = ""; 
-#     amount = 4_000_000_000; 
-#     from = ""
-#   }
-# })'

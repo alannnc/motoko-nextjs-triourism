@@ -710,7 +710,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         return switch housing {
             case null { #Err(msg.NotHousing)};
             case (?housing) {
-                let reservationsPending = cleanPendingVerifications(housingId, housing.reservationsPending);
+                let reservationsPending = cleanPendingVerifications(housingId);
                 if(not housing.active and housing.owner != caller) {
                     return #Err(msg.InactiveHousing)
                 };
@@ -916,16 +916,16 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                             checkOut = updateArray[x].checkOut - daysSinceLastUpdate    
                         }}
                     );
-                    let busy = getUnaviabilityFromReservations(#ReservationType(updateArray));
-                    let pending = getUnaviabilityFromReservations(#IdsReservation(housing.reservationsPending));
+                    let busy = extractDaysNotAvailable(#ReservationType(updateArray));
+                    let pending = extractDaysNotAvailable(#IdsReservation(housing.reservationsPending));
                     let unavailability = {busy; pending};
                     let calendary = {dayZero = startOfCurrentDayGMT; reservations = updateArray};
                     let housingUpdate = {housing with calendary; unavailability};
                     ignore Map.put<HousingId, Housing>(housings, nhash, housingId, housingUpdate);
                     return {calendary; unavailability};
                 } else {
-                    let busy = getUnaviabilityFromReservations(#ReservationType(housing.calendary.reservations));
-                    let pending = getUnaviabilityFromReservations(#IdsReservation(housing.reservationsPending));
+                    let busy = extractDaysNotAvailable(#ReservationType(housing.calendary.reservations));
+                    let pending = extractDaysNotAvailable(#IdsReservation(housing.reservationsPending));
                     let unavailability = {busy; pending};
                     return {calendary = housing.calendary; unavailability }
                 };
@@ -933,7 +933,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         }
     };
 
-    func getUnaviabilityFromReservations(input: {#ReservationType: [Reservation]; #IdsReservation : [Nat]}): [Int] {
+    func extractDaysNotAvailable(input: {#ReservationType: [Reservation]; #IdsReservation : [Nat]}): [Int] {
         let bufferDaysUnavailable = Buffer.fromArray<Int>([]);
         let reservationsArray = switch input {
             case ( #ReservationType(reservationsArray)){ reservationsArray };
@@ -960,11 +960,12 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         
     };
 
-    func cleanPendingVerifications(housingId: Nat, ids: [Nat]): [Nat] { //Remueve las solicitudes no confirmadas y con el tiempo de confirmacion transcurrido;
+    func cleanPendingVerifications(housingId: Nat): [Nat] { //Remueve las solicitudes no confirmadas y con el tiempo de confirmacion transcurrido;
         // TODO Esta funcion viola los principios solid ya que se encarga de limpiar las solicitudes pendientes tanto del Map general
         // como tambien los id de solicitudes de dentro de las estructuras de los housing y ademas devuelve un array con los ids vigentes 
         // correspondientes al HousingID pasado por parametro. Ealuar alguna refactorizacion
-        var reservationsPendingForId = ids;
+        // var reservationsPendingForId = ids;
+        var reservationsPendingForTheProvidedID: [Nat] = [];
         for ((id, reservation) in Map.toArray<Nat, Reservation>(reservationsPendingConfirmation).vals()) {
             if (now() > reservation.date + TimeToPay) {
                 print("Solicitud de reserva " # Nat.toText(id) # " Eliminada por timeout");
@@ -979,17 +980,13 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                         );
                         print("Id de solicitud " # Nat.toText(id) # " borrado\nreservas pendientes: ");
                         print(debug_show(reservationsPending)); // revisar el filter
-                        if (id == housingId ) {
-                            reservationsPendingForId := reservationsPending;
-                            print("Id de reserva: " # Nat.toText(housingId));
-                            print(debug_show(reservationsPendingForId))
-                        };
+                        if (id == housingId ) { reservationsPendingForTheProvidedID := reservationsPending };
                         ignore Map.put<HousingId, Housing>(housings, nhash, reservation.housingId, {housing with reservationsPending});
                     }
                 }
             }
         };
-        reservationsPendingForId
+        reservationsPendingForTheProvidedID
     };
 
     func getPendingReservations(ids: [Nat]): {pendings: [Reservation]; pendingReservUpdate: [Nat]}{
@@ -1318,8 +1315,12 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         switch housing {
             case null { return #Err(msg.NotHousing)};
             case ( ?housing ) {
+                //// Actualización del calendario ////
+                let { calendary } = updateCalendary(housingId);
+                // ignore Map.put<HousingId, Housing>(housings, nhash, housingId, {housing with calendary; unavailability});  
+                /////////////////////////////////////
                 if (housing.owner != caller) { return #Err(msg.CallerNotHousingOwner)};
-                for (reservation in housing.calendary.reservations.vals()) {
+                for (reservation in calendary.reservations.vals()) {
                     if (day >= reservation.checkIn and day < reservation.checkOut) {
                         return #Ok(reservation)
                     }
@@ -1328,19 +1329,6 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             }
         }
     };
-
-    // public shared query ({ caller }) func getReservations({housingId: Nat}): async {#Ok: [(Nat, Reservation)]; #Err: Text}{
-    //     let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
-    //     switch housing {
-    //         case null {#Err(msg.NotHousing)};
-    //         case ( ?housing ) {
-    //             if(housing.owner != caller ){
-    //                 return #Err(msg.CallerNotHousingOwner);
-    //             };
-    //             #Ok(Map.toArray<Nat, Reservation>(housing.reservationRequests))
-    //         }
-    //     }
-    // }
   
 
 };

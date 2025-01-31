@@ -3,7 +3,7 @@
 dfx deploy icrc1_ledger_canister --argument '( variant {
     Init = record {
       decimals = opt (8 : nat8);
-      token_symbol = "SNC";
+      token_symbol = "TOUR";
       transfer_fee = 10_000 : nat;
       metadata = vec {
         record { 
@@ -58,7 +58,7 @@ ICA8L2NpcmNsZT4KPC9zdmc+Cgo="
         controller_id = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
       };
       max_memo_length = null;
-      token_name = "Smart Network Card";
+      token_name = "$TOUR";
       feature_flags = opt record { icrc2 = true };
     }
   }
@@ -66,10 +66,12 @@ ICA8L2NpcmNsZT4KPC9zdmc+Cgo="
 
 dfx deploy icrc1_index_canister --argument '(opt variant {
   Init = record {
-    ledger_id = "bkyz2-fmaaa-aaaaa-qaaaq-cai";
-    retrieve_blocks_from_ledger_interval_seconds = null
+    ledger_id = principal "d7ew5-caaaa-aaaam-aebqa-cai";
+    retrieve_blocks_from_ledger_interval_seconds = opt 30
   }
 })'
+
+
 
 # dfx deploy icrc1_ledger_canister --ic --argument '(variant {
 #     Upgrade = opt record {
