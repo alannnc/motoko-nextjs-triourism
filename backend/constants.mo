@@ -12,10 +12,13 @@ module {
     public let NotUser = "Unregistered user";
     public let NotHostUser = "User is not Host User";
     public let CallerIsNotrequester = "The caller does not match the reservation requester";
-    public let NotHost = "Te caller in not Host User profile";
     public let InactiveHousing = "Housing is temporarily disabled";
     public let ZeroIsNotAllowed = "Is not greater than zero";
     public let IsNotpublishable = "Not publishable due to missing data";
     public let HousingTypeExist = "The housing type already exists";
-
+    public let HousingTypeNoExist = "The type of housing does not exist";
+    public let CallerIsNotRequester = "The caller is not the requester of the reservation id number ";
+    public let TransactionNotVerified = "The transaction was not verified successfully";
+    public let ErrorSetHoursCheckInCheckOut = "Check-in for one accommodation must be at least one hour later than check-out for the previous accommodation";
+    public let ErrorCheckInCheckOutDays = "The CheckOut day must be at least one day after the CheckIn day."
 };

@@ -87,16 +87,55 @@ dfx canister call backend updatePrices '(record {
     }
 })'
 ```
+Set amenities
 
+```
+dfx canister call backend setAmenities '( record { 
+    freeWifi = false; 
+    airCond = false; 
+    flatTV = false; 
+    minibar = true; 
+    safeBox = false; 
+    roomService = false; 
+    premiumLinen = false; 
+    ironBoard = false; 
+    privateBath = true; 
+    hairDryer = false; 
+    hotelRest = false; 
+    barLounge = false; 
+    buffetBrkfst = false; 
+    lobbyCoffee = false; 
+    catering = true; 
+    specialMenu = false; 
+    outdoorPool = false; 
+    spaWellness = false; 
+    gym = false; 
+    jacuzzi = false; 
+    gameRoom = true; 
+    tennisCourt = false; 
+    natureTrails = false; 
+    custom = vec {}; 
+}, 1)'
+
+```
 Solicitud de reserva
 
 ```
 dfx canister call backend requestReservation '(record {
-    housingId = 1 : nat;
-    data = record {
-      checkIn = 1731198892000000000 : int;
-      guest = "Leonardo";
-      checkOut = 1733790892000000000 : int;
-    };
+  housingId = 1; 
+  checkIn = 9; 
+  checkOut = 11; 
+  guest = "Carlos"
 })'
+
+
+dfx canister call backend confirmReservation '(record {
+  reservationId  = ; 
+  txData = record {
+    to = ""; 
+    amount = 4_000_000_000; 
+    from = ""
+  }
+})'
+
 ```

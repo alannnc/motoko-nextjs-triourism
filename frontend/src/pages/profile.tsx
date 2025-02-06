@@ -52,12 +52,14 @@ function Profile() {
 				firstName: data.name,
         lastName: data.lastname,
         phone: data.phone ? ([BigInt(data.phone.replace(/\s+/g, ''))] as [bigint]) : ([] as []),
-        email: data.email
+        email: data.email,
+				referralBy: [] as []
 			}
       const response = await backend.signUpAsHost(json);
 			debugger
       if ("Err" in response) {
         const errorResponse = response.Err as { userNotAuthenticated?: unknown };
+
         if (response.Err === "User already exists") router.push('/dashboard');
 
         throw new Error("Error creating profile");

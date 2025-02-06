@@ -19,6 +19,7 @@
     "booking"
   ],
   "scripts": {
+    "deploy-with-content": "chmod +x scripts-sh/deploy-with-content.sh; ./scripts-sh/deploy-with-content.sh",
     "build": "turbo run build",
     "clean:icp": "rm -rf .dfx && rm -rf .mops && rm -rf src/declarations",
     "preclean": "dfx stop && turbo run clean",

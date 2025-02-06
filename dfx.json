@@ -10,6 +10,13 @@
       }
 
     },
+
+    "icrc1_ledger_canister": {
+      "type": "custom",
+      "candid": "https://raw.githubusercontent.com/dfinity/ic/aa705aaa621c2e0d4f146f3a1de801edcb0fa0d5/rs/ledger_suite/icrc1/ledger/ledger.did",
+      "wasm": "https://download.dfinity.systems/ic/aa705aaa621c2e0d4f146f3a1de801edcb0fa0d5/canisters/ic-icrc1-ledger.wasm.gz"
+    },
+
     "test": {
       "type": "motoko",
       "main": "backend/test/main.mo",

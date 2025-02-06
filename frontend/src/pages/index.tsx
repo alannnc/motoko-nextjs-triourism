@@ -74,15 +74,6 @@ export default function IcConnectPage() {
   return (
     <>
       <Header />
-      <main className="p-6 bg-[#1e293b] min-h-screen">
-              <h2 className="text-xl text-[#E3EFFD] font-bold mb-2">User Info</h2>
-              <p className="mt-4 text-sm text-[#E3EFFD]">
-                <strong>Status:</strong> {isAuthenticated ? "Authenticated" : "Not Authenticated"}
-              </p>
-              <p className="text-[#E3EFFD]">
-                <strong>Current Identity:</strong> {currentIdentity.getPrincipal().toString()}
-              </p>
-      </main>
     </>
   );
 }
