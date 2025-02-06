@@ -17,3 +17,39 @@ En un contexto de MVP todos los usuarios serán inicializados por defecto como v
     A: Si el usuario realiza la transaccián, la cual devuelve un transaction hash, se llama a otra funcion de backend enviando el id de la reserva mas el transaction hash.
     B: Mediante una consulta al Ledger correspondiente a la moneda de pago, desde el bakend se envia el transaction hash, confirmando que los datos de retorno sean los correspondientes a la transaccion solicitada (Campo memo).
     C: Luego de la confirmacion y verificación se marca como ocupado en el calendario el rango de tiempo de alojamineto
+
+
+---
+#### Modificación del flujo de confirmaciones de reservas. (Confirmación del lado del Host)
+##### Ventajas y desventajas
+
+### Ventajas:
+1. El Host puede elegir, para un mismo periodo de alojamiento, el huesped que mejor se acomode a sus conveniencias de entre todos los que hayan requerido ese periodo de alojamiento.
+
+### Desventajas:
+#### Desventajas Para la plataforma:
+1. Por cada solicitud de reserva, la platafoma tiene que enviar una notificación al dueño de Host y esperar respuesta
+2. Durante el tiempo de espera, para ese mismo periodo de hospedaje solicitado se pueden acumular mas solicitudes, las cuales tienen que ser notificadas también.
+3. Que el usuario salga de la plataforma sin haber concretado un pago es motivo suficiente para que no vuelva.
+3. Cuando el dueño del Host confirma, la plataforma tiene que notificar tanto al potencial huesped como a los rechazados
+4. Al tiempo de demora de la confirmación hay que sumarle el tiempo de demora de confirmacion de la confirmacion por parte del huesped.
+4. Es decir, el potencial huesped tiene que reponder de alguna manera a la confirmacion. ¿Mediante un pago?
+5. Es incierto el momento en el que se establece definitivamente en el calendario un periodo de alojamiento como ocupado 
+#### Desventajas Para el dueño:
+1. La ventaja de poder elegir es equivalente a la desventaja de tener que elegir en cualquier momento del dia y rápido. Filosoficamente: No es una elección tener que elegir ya
+2. Si el tiempo de demora de la confirmación supera los 20 o 30 minutos, es muy probable que en ese momento el potencial huesped ya haya conseguido hospedaje en otro lugar.
+3. Posiblemente los rechazados no vuelven nunca más e incluso pidan explicaciones, que de no ser satisfechas consistentemente generen problemas legales.
+4. La confirmación de una reserva para un periodo largo de alojamiento y que luego no se materializa en un hospedaje (porque el usuario ya encontro otro lugar u otros motivos) puede tener como consecuencia, el rechazo de multiples solicitudes de alojamiento para ese mismo periodo y que no necesariamente hayan tenido solapamientos entre si. 
+##### Ejemplo:
+##### Solicitud confirmada: 
++ dias  [20... 30]
+##### Solicitudes rechazadas:
++ dias  [20... 24], 
++ dia 25, 
++ dias  [27... 28]
++ dia 29,
++ dia 30
+
+#### Desventajas Para el Usuario:
+1. Que el usuario salga de la plataforma con las manos vacias pudiendo salir con un problema solucionado es algo evitable.
+

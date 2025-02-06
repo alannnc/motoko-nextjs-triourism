@@ -10,6 +10,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   const client = Client.create({
     agentConfig: {
       host: process.env.NEXT_PUBLIC_IC_HOST_URL!,
+			verifyQuerySignatures: false,
     },
     candidCanisters,
     providers: [
