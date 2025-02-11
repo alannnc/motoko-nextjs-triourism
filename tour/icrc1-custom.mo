@@ -3,6 +3,8 @@ import Principal "mo:base/Principal";
 import Nat64 "mo:base/Nat64";
 import { now } "mo:base/Time";
 import { print } "mo:base/Debug";
+import Map "mo:map/Map";
+import { phash } "mo:map/Map";
  
 import ICRC1 "mo:icrc1-mo/ICRC1";
 import ICRC2 "mo:icrc2-mo/ICRC2";
@@ -178,7 +180,14 @@ shared ({ caller = _owner }) actor class CustomToken(
                 };
                 let minting_account = get_icrc1_state().minting_account;
                 ignore await* icrc1().mint(minting_account.owner, mintArgs);
-                // TODO mapear holder para verificacion de estado de vesting
+
+                // Mapeo holder/amount para verificacion de estado de vesting
+
+                let totalAmount = switch(Map.get<Principal, Nat>(holdersVesting, phash, owner)){
+                  case null { allocatedAmount };
+                  case ( ?previousAmount ) {allocatedAmount + previousAmount } // Caso de que un mismo principal se encuentre en dos categorias distintas
+                };
+                ignore Map.put<Principal, Nat>(holdersVesting, phash, owner, totalAmount);
               }
             }
           };
@@ -189,6 +198,30 @@ shared ({ caller = _owner }) actor class CustomToken(
     };
     initialized := true
   };
+
+  //// vesting validations ////
+
+  stable let holdersVesting = Map.new<Principal, Nat>();
+
+  func vestingVerification(caller: Principal, trx: ICRC1.TransferArgs): {#Ok; #Err: ICRC1.TransferError} {
+    // TODO ver esquema y status actual del vesting
+    
+    let balance = icrc1().balance_of({ owner = caller; subaccount = null });
+    let blocked_amount = switch ( Map.get<Principal, Nat>(holdersVesting, phash, caller) ){
+      case null { 0 };
+      case ( ?value ) { value }
+    };
+    if(balance  >= blocked_amount + trx.amount +  icrc1().fee()) {
+      #Ok
+    } else {
+      #Err(#VestingRestriction({
+        blocked_amount;
+        available_amount = balance - blocked_amount
+      }))
+    }
+  };
+  
+  
 
   // Custom functions
 
@@ -243,6 +276,10 @@ shared ({ caller = _owner }) actor class CustomToken(
   };
 
   public shared ({ caller }) func icrc1_transfer(args : ICRC1.TransferArgs) : async ICRC1.TransferResult {
+    switch(vestingVerification(caller, args)) {
+      case ( #Err(e) ) { return #Err(e) };
+      case _ { }
+    };
     let trxResult = await* icrc1().transfer(caller, args);
     ignore pushTrxToIndexer(trxResult);
     trxResult
