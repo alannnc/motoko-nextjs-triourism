@@ -181,13 +181,14 @@ shared ({ caller = _owner }) actor class CustomToken(
                 let minting_account = get_icrc1_state().minting_account;
                 ignore await* icrc1().mint(minting_account.owner, mintArgs);
 
-                // Mapeo holder/amount para verificacion de estado de vesting
-
-                let totalAmount = switch(Map.get<Principal, Nat>(holdersVesting, phash, owner)){
-                  case null { allocatedAmount };
-                  case ( ?previousAmount ) {allocatedAmount + previousAmount } // Caso de que un mismo principal se encuentre en dos categorias distintas
-                };
-                ignore Map.put<Principal, Nat>(holdersVesting, phash, owner, totalAmount);
+                // Mapeo holder/amount para permitir o denegar transacciones durante periodo de vesting
+                if ( hasVesting ){
+                  let totalAmount = switch(Map.get<Principal, Nat>(holdersVesting, phash, owner)){
+                    case null { allocatedAmount };
+                    case ( ?previousAmount ) {allocatedAmount + previousAmount } // Caso de que un mismo principal se encuentre en dos categorias distintas
+                  };
+                  ignore Map.put<Principal, Nat>(holdersVesting, phash, owner, totalAmount);
+                }
               }
             }
           };
@@ -205,7 +206,7 @@ shared ({ caller = _owner }) actor class CustomToken(
 
   func vestingVerification(caller: Principal, trx: ICRC1.TransferArgs): {#Ok; #Err: ICRC1.TransferError} {
     // TODO ver esquema y status actual del vesting
-    
+
     let balance = icrc1().balance_of({ owner = caller; subaccount = null });
     let blocked_amount = switch ( Map.get<Principal, Nat>(holdersVesting, phash, caller) ){
       case null { 0 };
@@ -221,8 +222,6 @@ shared ({ caller = _owner }) actor class CustomToken(
     }
   };
   
-  
-
   // Custom functions
 
   public query func indexerCanister(): async ?Principal {
