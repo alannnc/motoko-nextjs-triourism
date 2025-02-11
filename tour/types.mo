@@ -1,3 +1,5 @@
+import ICRC1 "mo:icrc1-mo/ICRC1";
+
 module {
 
     // public type CustomArgs = {
@@ -48,6 +50,20 @@ module {
             lastTrigger := t;
         };
         true;
+    };
+
+    // Custom Errors
+
+    public type TxIndex = Nat;
+    public type TransferResult = {
+      #Ok : TxIndex;
+      #Err : TransferError;
+    };
+    public type TransferError = ICRC1.TransferError or {
+      #VestingRestriction : {
+          blocked_amount : Nat;
+          available_amount : Nat;
+      };
     };
     ////////////////////////////////////////
 

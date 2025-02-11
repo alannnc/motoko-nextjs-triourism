@@ -204,7 +204,7 @@ shared ({ caller = _owner }) actor class CustomToken(
 
   stable let holdersVesting = Map.new<Principal, Nat>();
 
-  func vestingVerification(caller: Principal, trx: ICRC1.TransferArgs): {#Ok; #Err: ICRC1.TransferError} {
+  func vestingVerification(caller: Principal, trx: ICRC1.TransferArgs): {#Ok; #Err: Types.TransferError} {
     // TODO ver esquema y status actual del vesting
 
     let balance = icrc1().balance_of({ owner = caller; subaccount = null });
@@ -274,7 +274,7 @@ shared ({ caller = _owner }) actor class CustomToken(
     icrc1().supported_standards();
   };
 
-  public shared ({ caller }) func icrc1_transfer(args : ICRC1.TransferArgs) : async ICRC1.TransferResult {
+  public shared ({ caller }) func icrc1_transfer(args : ICRC1.TransferArgs) : async Types.TransferResult {
     switch(vestingVerification(caller, args)) {
       case ( #Err(e) ) { return #Err(e) };
       case _ { }
@@ -303,6 +303,10 @@ shared ({ caller = _owner }) actor class CustomToken(
   };
 
   public shared ({ caller }) func icrc2_transfer_from(args : ICRC2.TransferFromArgs) : async ICRC2.TransferFromResponse {
+    switch(vestingVerification(args.from.owner, {args with from_subaccount = args.from.subaccount}: ICRC1.TransferArgs)) {
+      case ( #Err(e) ) { return #Err(e) };
+      case _ { }
+    };
     let trxResult = await* icrc2().transfer_from(caller, args);
     switch trxResult {
       case (#Err(_)) { trxResult };
