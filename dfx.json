@@ -11,6 +11,11 @@
 
     },
 
+    "tour": {
+      "type": "motoko",
+      "main": "tour/icrc1-custom.mo"
+    },
+
     "icrc1_ledger_canister": {
       "type": "custom",
       "candid": "https://raw.githubusercontent.com/dfinity/ic/233c1ee2ef68c1c8800b8151b2b9f38e17b8440a/rs/ledger_suite/icrc1/ledger/ledger.did",

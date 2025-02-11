@@ -1,98 +1,71 @@
 
-##No funciona la visualizacion del logo en la wallet
-dfx deploy icrc1_ledger_canister --argument '( variant {
-    Init = record {
-      decimals = opt (8 : nat8);
-      token_symbol = "TOUR";
-      transfer_fee = 10_000 : nat;
-      metadata = vec {
-        record { 
-          "icrc1:logo";
-          variant {Text = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAg
-MTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCI+CiAgICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUw
-IiByPSI0MCIgZmlsbD0iYmx1ZSI+CiAgICAgICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0iciIg
-ZnJvbT0iNDAiIHRvPSIyMCIgZHVyPSIxcyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIC8+CiAg
-ICA8L2NpcmNsZT4KPC9zdmc+Cgo="
-          }
-        };
-        record { "icrc1:decimals"; variant { Nat = 8 : nat } };
-        record { "icrc1:name"; variant { Text = "$TOUR" } };
-        record { "icrc1:symbol"; variant { Text = "TOUR" } };
-        record { "icrc1:fee"; variant { Nat = 10_000 : nat } };
-        record { "icrc1:max_memo_length"; variant { Nat = 80 : nat } };
-      };
-      minting_account = record {
-        owner = principal "y77j5-4vnxl-ywos7-qjtcr-6iopc-i2ql2-iwoem-ehvwk-wruju-fr7ib-mae";
-        subaccount = null;
-      };
-      initial_balances = vec {
-        record {
-          record {
-            owner = principal "zpdk5-e6ec5-izoeb-uzhwy-rl2ot-4ag42-im6yv-itg3x-inywa-j3bae-tqe";
-            subaccount = null;
-          };
-          1_000_000_000_000_000 : nat;
-        };
-        record {
-          record {
-            owner = principal "xigzi-mf2wo-xch5n-4dlsf-5tq6n-pke7b-7w2tx-2fv4h-l3yvi-3ycr2-pae";
-            subaccount = null;
-          };
-          500_000_000_000_000: nat;
-        }
-      };
-      fee_collector_account = opt record {
-        owner = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
-        subaccount = null;
-      };
-      archive_options = record {
-        num_blocks_to_archive = 1_000 : nat64;
-        max_transactions_per_response = null;
-        trigger_threshold = 2_000 : nat64;
-        more_controller_ids = opt vec {
-          principal "d2alm-ajpbz-hohks-j3k3y-ulxfm-fegz6-jwopx-d2eu7-3ycil-hnxqa-hae";
-        };
-        max_message_size_bytes = null;
-        cycles_for_archive_creation = opt (10_000_000_000_000 : nat64);
-        node_max_memory_size_bytes = null;
-        controller_id = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
-      };
-      max_memo_length = null;
-      token_name = "$TOUR";
-      feature_flags = opt record { icrc2 = true };
-    }
-  }
-)'
-
-dfx deploy icrc1_index_canister --argument '(opt variant {
-  Init = record {
-    ledger_id = principal "d7ew5-caaaa-aaaam-aebqa-cai";
-    retrieve_blocks_from_ledger_interval_seconds = opt 30
-  }
-})'
-
-
-
-# dfx deploy icrc1_ledger_canister --ic --argument '(variant {
-#     Upgrade = opt record {
-#       change_archive_options = null;
-#       token_symbol = null;
-#       transfer_fee = null;
-#       metadata = opt vec {
-#         record {
+# dfx deploy icrc1_ledger_canister --argument '( variant {
+#     Init = record {
+#       decimals = opt (8 : nat8);
+#       token_symbol = "TOUR";
+#       transfer_fee = 10_000 : nat;
+#       metadata = vec {
+#         record { 
 #           "icrc1:logo";
-#           variant {
-#             Text = "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhLS0gQ3JlYXRlZCB3aXRoIElua3NjYXBlIChodHRwOi8vd3d3Lmlua3NjYXBlLm9yZy8pIC0tPgoKPHN2ZwogICB3aWR0aD0iNzYuNDg4NzkybW0iCiAgIGhlaWdodD0iODYuNDU0NjEzbW0iCiAgIHZpZXdCb3g9IjAgMCA3Ni40ODg3OTIgODYuNDU0NjE0IgogICB2ZXJzaW9uPSIxLjEiCiAgIGlkPSJzdmc1IgogICBpbmtzY2FwZTp2ZXJzaW9uPSIxLjEuMiAoMGEwMGNmNTMzOSwgMjAyMi0wMi0wNCkiCiAgIHNvZGlwb2RpOmRvY25hbWU9ImxvZ28uc3ZnIgogICB4bWxuczppbmtzY2FwZT0iaHR0cDovL3d3dy5pbmtzY2FwZS5vcmcvbmFtZXNwYWNlcy9pbmtzY2FwZSIKICAgeG1sbnM6c29kaXBvZGk9Imh0dHA6Ly9zb2RpcG9kaS5zb3VyY2Vmb3JnZS5uZXQvRFREL3NvZGlwb2RpLTAuZHRkIgogICB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAgIHhtbG5zOnN2Zz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogIDxzb2RpcG9kaTpuYW1lZHZpZXcKICAgICBpZD0ibmFtZWR2aWV3NyIKICAgICBwYWdlY29sb3I9IiNmZmZmZmYiCiAgICAgYm9yZGVyY29sb3I9IiM2NjY2NjYiCiAgICAgYm9yZGVyb3BhY2l0eT0iMS4wIgogICAgIGlua3NjYXBlOnBhZ2VzaGFkb3c9IjIiCiAgICAgaW5rc2NhcGU6cGFnZW9wYWNpdHk9IjAuMCIKICAgICBpbmtzY2FwZTpwYWdlY2hlY2tlcmJvYXJkPSJmYWxzZSIKICAgICBpbmtzY2FwZTpkb2N1bWVudC11bml0cz0ibW0iCiAgICAgc2hvd2dyaWQ9ImZhbHNlIgogICAgIGlua3NjYXBlOnpvb209IjEuMDI5MjE2MiIKICAgICBpbmtzY2FwZTpjeD0iMTI1LjgyMzkxIgogICAgIGlua3NjYXBlOmN5PSIxNDkuNjI4NDMiCiAgICAgaW5rc2NhcGU6d2luZG93LXdpZHRoPSIxMDM1IgogICAgIGlua3NjYXBlOndpbmRvdy1oZWlnaHQ9Ijc3OCIKICAgICBpbmtzY2FwZTp3aW5kb3cteD0iNTAiCiAgICAgaW5rc2NhcGU6d2luZG93LXk9IjExNjkiCiAgICAgaW5rc2NhcGU6d2luZG93LW1heGltaXplZD0iMCIKICAgICBpbmtzY2FwZTpjdXJyZW50LWxheWVyPSJsYXllcjEiCiAgICAgaW5rc2NhcGU6c25hcC1ncmlkcz0iZmFsc2UiCiAgICAgYm9yZGVybGF5ZXI9ImZhbHNlIgogICAgIHNob3dib3JkZXI9InRydWUiCiAgICAgaW5rc2NhcGU6c2hvd3BhZ2VzaGFkb3c9ImZhbHNlIgogICAgIGZpdC1tYXJnaW4tdG9wPSIwIgogICAgIGZpdC1tYXJnaW4tbGVmdD0iMCIKICAgICBmaXQtbWFyZ2luLXJpZ2h0PSIwIgogICAgIGZpdC1tYXJnaW4tYm90dG9tPSIwIiAvPgogIDxkZWZzCiAgICAgaWQ9ImRlZnMyIiAvPgogIDxnCiAgICAgaW5rc2NhcGU6bGFiZWw9IkNhcGEgMSIKICAgICBpbmtzY2FwZTpncm91cG1vZGU9ImxheWVyIgogICAgIGlkPSJsYXllcjEiCiAgICAgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTI3Ljk2Nzc5NSwtNDIuOTYxMTQ1KSI+CiAgICA8cGF0aAogICAgICAgc29kaXBvZGk6dHlwZT0ic3RhciIKICAgICAgIHN0eWxlPSJmaWxsOiMwMGZmZmY7ZmlsbC1vcGFjaXR5OjA7c3Ryb2tlOiMzN2Q2ZWE7c3Ryb2tlLXdpZHRoOjE5LjE0MzM7c3Ryb2tlLWxpbmVqb2luOnJvdW5kO3N0cm9rZS1taXRlcmxpbWl0OjQ7c3Ryb2tlLWRhc2hhcnJheTpub25lO3N0cm9rZS1vcGFjaXR5OjEiCiAgICAgICBpZD0icGF0aDg4NDQiCiAgICAgICBpbmtzY2FwZTpmbGF0c2lkZWQ9InRydWUiCiAgICAgICBzb2RpcG9kaTpzaWRlcz0iNiIKICAgICAgIHNvZGlwb2RpOmN4PSIxMTQuNTM3MTgiCiAgICAgICBzb2RpcG9kaTpjeT0iMzA1Ljk3OTgzIgogICAgICAgc29kaXBvZGk6cjE9Ijc3Ljc2MzQ5NiIKICAgICAgIHNvZGlwb2RpOnIyPSI2Ny4zNDUxNjEiCiAgICAgICBzb2RpcG9kaTphcmcxPSIwLjUxNjcwNDgyIgogICAgICAgc29kaXBvZGk6YXJnMj0iMS4wNDAzMDM2IgogICAgICAgaW5rc2NhcGU6cm91bmRlZD0iMCIKICAgICAgIGlua3NjYXBlOnJhbmRvbWl6ZWQ9IjAiCiAgICAgICB0cmFuc2Zvcm09Im1hdHJpeCgwLjI2NDU4MzMzLDAsMCwwLjI2NDU4MzMzLDE4LjA4NDU3LC01Ljc3ODg2MzYpIgogICAgICAgaW5rc2NhcGU6dHJhbnNmb3JtLWNlbnRlci15PSItMS4wMTk5MzI4ZS0wNiIKICAgICAgIGQ9Im0gMTgyLjE0ODc5LDM0NC4zOTYzOCAtNjcuMDc1NTIsMzkuMzQ1MSAtNjcuNjExNjA4LC0zOC40MTY1NiAtMC41MzYwOTQsLTc3Ljc2MTY1IDY3LjA3NTUxMiwtMzkuMzQ1MDkgNjcuNjExNjEsMzguNDE2NTUgeiIgLz4KICAgIDxwYXRoCiAgICAgICBzdHlsZT0iZmlsbDpub25lO3N0cm9rZTojMzdkNmVhO3N0cm9rZS13aWR0aDo1LjA2NTtzdHJva2UtbGluZWNhcDpidXR0O3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2UtbWl0ZXJsaW1pdDo0O3N0cm9rZS1kYXNoYXJyYXk6bm9uZTtzdHJva2Utb3BhY2l0eToxIgogICAgICAgZD0iTSA2Ni4yNzgxMDMsODUuMzQyNjc2IDg0LjE2NzAwNSw5NS41MDcwNTcgMTAxLjkxNDA3LDg1LjA5NyAxMDEuNzcyMjMsNjQuNTIyNTYzIDgzLjg4MzMyNCw1NC4zNTgxODUiCiAgICAgICBpZD0icGF0aDIxNjE5IiAvPgogICAgPHBhdGgKICAgICAgIHN0eWxlPSJmaWxsOm5vbmU7c3Ryb2tlOiMzN2Q2ZWE7c3Ryb2tlLXdpZHRoOjUuMDY1O3N0cm9rZS1saW5lY2FwOmJ1dHQ7c3Ryb2tlLWxpbmVqb2luOm1pdGVyO3N0cm9rZS1taXRlcmxpbWl0OjQ7c3Ryb2tlLWRhc2hhcnJheTpub25lO3N0cm9rZS1vcGFjaXR5OjEiCiAgICAgICBkPSJtIDQ4LjUzMTAzOSw5NS43NTI3MzQgMC4xNDE4NCwyMC41NzQ0MzYgYyAwLDAgMTcuODg4OTA1LDEwLjE2NDM4IDE3Ljg4ODkwNSwxMC4xNjQzOCBsIDE3Ljc0NzA2NCwtMTAuNDEwMDYiCiAgICAgICBpZD0icGF0aDIxNzM0IiAvPgogICAgPGVsbGlwc2UKICAgICAgIHN0eWxlPSJmaWxsOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7c3Ryb2tlOiMzN2Q2ZWE7c3Ryb2tlLXdpZHRoOjUuMDY1O3N0cm9rZS1taXRlcmxpbWl0OjQ7c3Ryb2tlLWRhc2hhcnJheTpub25lO3N0cm9rZS1vcGFjaXR5OjEiCiAgICAgICBpZD0icGF0aDI3NDYyIgogICAgICAgY3g9IjkwLjI2NDgwMSIKICAgICAgIGN5PSIxMTIuMzI3MzQiCiAgICAgICByeD0iNS4wNjQyOTUzIgogICAgICAgcnk9IjUuMTU3NjM4MSIgLz4KICAgIDxlbGxpcHNlCiAgICAgICBzdHlsZT0iZmlsbDpub25lO2ZpbGwtcnVsZTpldmVub2RkO3N0cm9rZTojMzdkNmVhO3N0cm9rZS13aWR0aDo1LjA2NTtzdHJva2UtbWl0ZXJsaW1pdDo0O3N0cm9rZS1kYXNoYXJyYXk6bm9uZTtzdHJva2Utb3BhY2l0eToxIgogICAgICAgaWQ9InBhdGgyNzQ2Mi02IgogICAgICAgY3g9Ijc3Ljc2MzAwOCIKICAgICAgIGN5PSI1MC42NTEyODMiCiAgICAgICByeD0iNS4wNjQyOTUzIgogICAgICAgcnk9IjUuMTU3NjM4MSIgLz4KICA8L2c+Cjwvc3ZnPgo="
-#           };
+#           variant {Text = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCI+CiAgICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0iYmx1ZSI+CiAgICAgICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0iciIgZnJvbT0iNDAiIHRvPSIyMCIgZHVyPSIxcyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIC8+CiAgICA8L2NpcmNsZT4KPC9zdmc+Cgo="
+#           }
 #         };
+#         record { "icrc1:decimals"; variant { Nat = 8 : nat } };
+#         record { "icrc1:name"; variant { Text = "$TOUR" } };
+#         record { "icrc1:symbol"; variant { Text = "TOUR" } };
+#         record { "icrc1:fee"; variant { Nat = 10_000 : nat } };
+#         record { "icrc1:max_memo_length"; variant { Nat = 80 : nat } };
 #       };
-#       change_fee_collector = null;
+#       minting_account = record {
+#         owner = principal "y77j5-4vnxl-ywos7-qjtcr-6iopc-i2ql2-iwoem-ehvwk-wruju-fr7ib-mae";
+#         subaccount = null;
+#       };
+#       initial_balances = vec {
+#         record {
+#           record {
+#             owner = principal "zpdk5-e6ec5-izoeb-uzhwy-rl2ot-4ag42-im6yv-itg3x-inywa-j3bae-tqe";
+#             subaccount = null;
+#           };
+#           1_000_000_000_000_000 : nat;
+#         };
+#         record {
+#           record {
+#             owner = principal "xigzi-mf2wo-xch5n-4dlsf-5tq6n-pke7b-7w2tx-2fv4h-l3yvi-3ycr2-pae";
+#             subaccount = null;
+#           };
+#           500_000_000_000_000: nat;
+#         }
+#       };
+#       fee_collector_account = opt record {
+#         owner = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
+#         subaccount = null;
+#       };
+#       archive_options = record {
+#         num_blocks_to_archive = 1_000 : nat64;
+#         max_transactions_per_response = null;
+#         trigger_threshold = 2_000 : nat64;
+#         more_controller_ids = opt vec {
+#           principal "d2alm-ajpbz-hohks-j3k3y-ulxfm-fegz6-jwopx-d2eu7-3ycil-hnxqa-hae";
+#         };
+#         max_message_size_bytes = null;
+#         cycles_for_archive_creation = opt (10_000_000_000_000 : nat64);
+#         node_max_memory_size_bytes = null;
+#         controller_id = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
+#       };
 #       max_memo_length = null;
-#       token_name = null;
-#       feature_flags = null;
+#       token_name = "$TOUR";
+#       feature_flags = opt record { icrc2 = true };
 #     }
 #   }
 # )'
+
+# dfx deploy icrc1_index_canister --argument '(opt variant {
+#   Init = record {
+#     ledger_id = principal "br5f7-7uaaa-aaaaa-qaaca-cai";
+#     retrieve_blocks_from_ledger_interval_seconds = opt 30
+#   }
+# })'
+
 
 
 # Ejemplo de metadata de ckBTC
@@ -111,3 +84,132 @@ dfx deploy icrc1_index_canister --argument '(opt variant {
 #     record { "icrc1:max_memo_length"; variant { Nat = 80 : nat } };
 #   },
 # )
+# dfx deploy tour --argument '(
+#   record {
+#     fee = opt variant { Fixed = 10_000 : nat };
+#     advanced_settings = null;
+#     max_memo = opt (32 : nat);
+#     decimals = 8 : nat8;
+#     metadata = null;
+#     minting_account = opt record {
+#       owner = principal "xigzi-mf2wo-xch5n-4dlsf-5tq6n-pke7b-7w2tx-2fv4h-l3yvi-3ycr2-pae";
+#       subaccount = null;
+#     };
+#     logo = null;
+#     permitted_drift = null;
+#     name = opt "Triourism";
+#     settle_to_accounts = null;
+#     fee_collector = opt record {
+#       owner = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
+#       subaccount = null;
+#     };
+#     transaction_window = null;
+#     min_burn_amount = opt (50_000 : nat);
+#     max_supply = null;
+#     max_accounts = null;
+#     symbol = opt "TRI";
+#   },
+#   record {
+#     fee = null;
+#     advanced_settings = null;
+#     max_allowance = null;
+#     max_approvals = null;
+#     max_approvals_per_account = null;
+#     settle_to_approvals = null;
+#   }
+# )'
+
+dfx deploy tour --argument '(
+  variant {
+    Init = record {
+      decimals = 8 : nat8;
+      token_symbol = "TOUR4";
+      transfer_fee = 10_000 : nat;
+      metadata = vec {
+        record {
+          "icrc1:logo";
+          variant {
+            Text = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCI+CiAgICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0iYmx1ZSI+CiAgICAgICAgPGFuaW1hdGUgYXR0cmlidXRlTmFtZT0iciIgZnJvbT0iNDAiIHRvPSIyMCIgZHVyPSIxcyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIC8+CiAgICA8L2NpcmNsZT4KPC9zdmc+Cgo="
+          };
+        };
+        record { "icrc1:decimals"; variant { Nat = 8 : nat } };
+        record { "icrc1:name"; variant { Text = "TOUR4" } };
+        record { "icrc1:symbol"; variant { Text = "$TOUR4" } };
+        record { "icrc1:fee"; variant { Nat = 10_000 : nat } };
+        record { "icrc1:max_memo_length"; variant { Nat = 32 : nat } };
+      };
+      minting_account = record {
+        owner = principal "y77j5-4vnxl-ywos7-qjtcr-6iopc-i2ql2-iwoem-ehvwk-wruju-fr7ib-mae";
+        subaccount = null;
+      };
+      initial_balances = vec {};
+      fee_collector_account = opt record {
+        owner = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
+        subaccount = null;
+      };
+      archive_options = record {
+        num_blocks_to_archive = 1_000 : nat64;
+        max_transactions_per_response = null;
+        trigger_threshold = 2_000 : nat64;
+        more_controller_ids = opt vec {
+          principal "d2alm-ajpbz-hohks-j3k3y-ulxfm-fegz6-jwopx-d2eu7-3ycil-hnxqa-hae";
+        };
+        max_message_size_bytes = null;
+        cycles_for_archive_creation = opt (10_000_000_000_000 : nat64);
+        node_max_memory_size_bytes = null;
+        controller_id = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
+      };
+      max_supply = 100_000_000_000_000 : nat;
+      max_memo_length = opt (32 : nat);
+      token_name = "$TOUR4";
+      feature_flags = opt record { icrc2 = true };
+    }
+  },
+  record {
+    metadata = vec {};
+    min_burn_amount = null;
+    max_supply = 100_000_000_000_000 : nat;
+    distribution = opt record {
+      allocations = vec {
+        record {
+          categoryName = "Founders";
+          holders = vec {
+            record {
+              owner = principal "xyhzp-zrjop-dxido-ehezj-ipucb-todkp-5reb5-oaxey-q2nce-4ss2t-yqe";
+              hasVesting = true;
+              allocatedAmount = 1_000_000_000 : nat;
+            };
+            record {
+              owner = principal "qcirp-tviue-bxtvo-bniam-zfaku-5yy25-h2dwp-cex5m-ojvxu-5b4zd-fae";
+              hasVesting = true;
+              allocatedAmount = 500_000_000 : nat;
+            };
+            record {
+              owner = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
+              hasVesting = true;
+              allocatedAmount = 500_000_000 : nat;
+            };
+          };
+        };
+        record {
+          categoryName = "Investors";
+          holders = vec {
+            record {
+              owner = principal "47enf-gshcb-jwiou-py5pm-nwzgv-y65n2-p6rsv-rknt2-wnl2o-2hcrc-4ae";
+              hasVesting = true;
+              allocatedAmount = 4_500_000_000 : nat;
+            };
+          };
+        };
+      };
+      vestingSchemme = variant {
+        timeBasedVesting = record {
+          duration = 2_700_000_000_000 : nat; 
+          cliff = null;
+          releaseRate = 100000000 : nat;
+          releaseInterval = 1_080_000_000_000 : nat;
+        }
+      };
+    };
+  },
+)'

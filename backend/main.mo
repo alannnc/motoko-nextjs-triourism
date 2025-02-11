@@ -835,7 +835,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     };
 
     func encodeAmenities(a: Types.Amenities): Nat64 {
-        var result = 0: Nat64; //el bit mas significativo se ignora en la decodificación
+        var result = 0: Nat64; 
         // El orden de los elementos de este array tiene que coincidir con el array para la decodificacion 
         let arrayBools = [
             a.freeWifi,
