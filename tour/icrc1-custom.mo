@@ -5,23 +5,23 @@ import { now } "mo:base/Time";
 import { print } "mo:base/Debug";
 import Map "mo:map/Map";
 import { phash } "mo:map/Map";
- 
+
 import ICRC1 "mo:icrc1-mo/ICRC1";
 import ICRC2 "mo:icrc2-mo/ICRC2";
 import Types "types";
+import Tokenomic "tokenomic";
 import Vec "mo:vector";
 import Indexer "indexer";
 import Array "mo:base/Array";
 import Int "mo:base/Int";
 import IC "../interfaces/ic-management-interface";
 
-
 shared ({ caller = _owner }) actor class CustomToken(
   // init_args1 : ICRC1.InitArgs,
   // init_args2 : ICRC2.InitArgs,
   ledgerArgs : Types.LedgerArgument,
   customArgs : {
-    distribution: ?Types.InitialDistribution;
+    distribution : ?Tokenomic.InitialDistribution;
     max_supply : Nat;
     metadata : [(Text, Types.MetadataValue)];
     min_burn_amount : ?Nat;
@@ -58,7 +58,7 @@ shared ({ caller = _owner }) actor class CustomToken(
         max_approvals_per_account = null;
         settle_to_approvals = null;
       };
-      
+
     };
 
     case (#Upgrade(_)) {
@@ -128,8 +128,6 @@ shared ({ caller = _owner }) actor class CustomToken(
 
   stable var _indexer : ?Indexer.Indexer = null;
 
-  
-
   func pushTrxToIndexer(trxResult : ICRC1.TransferResult) : async ICRC1.TransferResult {
     switch (trxResult) {
       case (#Err(_)) {};
@@ -150,6 +148,8 @@ shared ({ caller = _owner }) actor class CustomToken(
   ///// Deploy indexer /////
 
   private func deploy_indexer() : async Principal {
+    switch _indexer {
+      case null {
         ExperimentalCycles.add<system>(2_000_000_000_000);
         let indexer = await Indexer.Indexer();
         _indexer := ?indexer;
@@ -157,80 +157,101 @@ shared ({ caller = _owner }) actor class CustomToken(
         // Agregamos al _owner como controlador del indexer
         await IC.addController(Principal.fromActor(indexer), _owner);
         indexerCanisterId;
+      };
+      case (?pid) { Principal.fromActor(pid) };
+    };
+  };
+
+  func distribution(allocations : [Tokenomic.Allocation]): async {#Ok; #Err: Text} {
+    if (distributionComplete) { return #Err("Distribution is already complete")};
+    for (distItem in allocations.vals()) {
+      for ({ allocatedAmount; hasVesting; owner } in distItem.holders.vals()) {
+        let mintArgs = {
+          to : Types.Account = { owner; subaccount = null };
+          amount = allocatedAmount;
+          memo = null;
+          created_at_time = ?Nat64.fromNat(Int.abs(now()));
+        };
+        let minting_account = get_icrc1_state().minting_account;
+        ignore await* icrc1().mint(minting_account.owner, mintArgs);
+
+        // Mapeo holder/amount para permitir o denegar transacciones durante periodo de vesting
+        if (Map.has<Principal, { value : Nat; categoryName : Text }>(holdersVesting, phash, owner)) {
+          return #Err("Hay un mismo principal en mas de una categoría de distribución");
+        };
+
+        if (hasVesting) {
+          ignore Map.put<Principal, { value : Nat; categoryName : Text }>(
+            holdersVesting,
+            phash,
+            owner,
+            { value = allocatedAmount; categoryName = distItem.categoryName },
+          );
+        };
+      };
+    };
+    distributionComplete := true;
+    #Ok
+
   };
 
   ////// Deploy de canister indexer y distribucion inicial  ///////
-  stable var initialized = false;
-  public shared ({ caller }) func initialize(): async (){
+  stable var distributionComplete = false;
+
+  public shared ({ caller }) func initialize() : async { #Ok; #Err : Text } {
     assert (caller == _owner);
-    assert (not initialized);
+
     let indexerCanisterId = await deploy_indexer();
-    print( "Indexer canister deployed at " # debug_show(indexerCanisterId));
+    print("Indexer canister deployed at " # debug_show (indexerCanisterId));
     switch ledgerArgs {
       case (#Init(_)) {
         switch (customArgs.distribution) {
           case (?dist) {
-            for(distItem in dist.allocations.vals()){
-              for ({ allocatedAmount; hasVesting; owner} in distItem.holders.vals()){
-                let mintArgs = {
-                  to: Types.Account = {owner ; subaccount = null};               
-                  amount = allocatedAmount;          
-                  memo = null;               
-                  created_at_time = ?Nat64.fromNat(Int.abs(now()));
-                };
-                let minting_account = get_icrc1_state().minting_account;
-                ignore await* icrc1().mint(minting_account.owner, mintArgs);
-
-                // Mapeo holder/amount para permitir o denegar transacciones durante periodo de vesting
-                if ( hasVesting ){
-                  let totalAmount = switch(Map.get<Principal, Nat>(holdersVesting, phash, owner)){
-                    case null { allocatedAmount };
-                    case ( ?previousAmount ) {allocatedAmount + previousAmount } // Caso de que un mismo principal se encuentre en dos categorias distintas
-                  };
-                  ignore Map.put<Principal, Nat>(holdersVesting, phash, owner, totalAmount);
-                }
-              }
-            }
+            return  await distribution(dist.allocations);
           };
-          case (_) {};
-        };     
+          case (_) { return #Ok };
+        };
       };
-      case (_) { }
+      case (_) { return #Ok };
     };
-    initialized := true
+
   };
+  
+  /////////////////////// vesting validations /////////////////////
 
-  //// vesting validations ////
+  stable let holdersVesting = Map.new<Principal, { value : Nat; categoryName : Text }>();
 
-  stable let holdersVesting = Map.new<Principal, Nat>();
+  // func calculateBlockedAmount(initial: Nat, scheme:  Tokenomic.VestingSchemme): Nat {
 
-  func vestingVerification(caller: Principal, trx: ICRC1.TransferArgs): {#Ok; #Err: Types.TransferError} {
+  // };
+
+  func checkVestingRestrictions(caller : Principal, trx : ICRC1.TransferArgs) : {
+    #Ok;
+    #Err : Types.TransferError;
+  } {
     // TODO ver esquema y status actual del vesting
 
     let balance = icrc1().balance_of({ owner = caller; subaccount = null });
-    let blocked_amount = switch ( Map.get<Principal, Nat>(holdersVesting, phash, caller) ){
-      case null { 0 };
-      case ( ?value ) { value }
+    let blocked_amount = switch (Map.get<Principal, { value : Nat; categoryName : Text }>(holdersVesting, phash, caller)) {
+      case null { return #Ok; 0 };
+      case (?{ value; categoryName }) { value };
     };
-    if(balance  >= blocked_amount + trx.amount +  icrc1().fee()) {
-      #Ok
+    if (balance >= blocked_amount + trx.amount + icrc1().fee()) {
+      #Ok;
     } else {
-      #Err(#VestingRestriction({
-        blocked_amount;
-        available_amount = balance - blocked_amount
-      }))
-    }
+      #Err(#VestingRestriction({ blocked_amount; available_amount = balance - blocked_amount }));
+    };
   };
-  
+
   // Custom functions
 
-  public query func indexerCanister(): async ?Principal {
+  public query func indexerCanister() : async ?Principal {
     switch (_indexer) {
       case null { null };
       case (?indexer) {
         ?Principal.fromActor(indexer);
-      }
-    }
+      };
+    };
   };
 
   public shared query ({ caller }) func balance(subaccount : ?Blob) : async Nat {
@@ -275,13 +296,13 @@ shared ({ caller = _owner }) actor class CustomToken(
   };
 
   public shared ({ caller }) func icrc1_transfer(args : ICRC1.TransferArgs) : async Types.TransferResult {
-    switch(vestingVerification(caller, args)) {
-      case ( #Err(e) ) { return #Err(e) };
-      case _ { }
+    switch (checkVestingRestrictions(caller, args)) {
+      case (#Err(e)) { return #Err(e) };
+      case _ {};
     };
     let trxResult = await* icrc1().transfer(caller, args);
     ignore pushTrxToIndexer(trxResult);
-    trxResult
+    trxResult;
   };
 
   public shared ({ caller }) func mint(args : ICRC1.Mint) : async ICRC1.TransferResult {
@@ -298,14 +319,18 @@ shared ({ caller = _owner }) actor class CustomToken(
     return icrc2().allowance(args.spender, args.account, false);
   };
 
-  public shared ({ caller }) func icrc2_approve(args : ICRC2.ApproveArgs) : async ICRC2.ApproveResponse {
+  public shared ({ caller }) func icrc2_approve(args : ICRC2.ApproveArgs) : async Types.ApproveResponse {
+    switch (checkVestingRestrictions(caller, { args with to = args.spender } : ICRC1.TransferArgs)) {
+      case (#Err(#VestingRestriction(e))) { return #Err(#VestingRestriction(e)) };
+      case _ {};
+    };
     await* icrc2().approve(caller, args);
   };
 
   public shared ({ caller }) func icrc2_transfer_from(args : ICRC2.TransferFromArgs) : async ICRC2.TransferFromResponse {
-    switch(vestingVerification(args.from.owner, {args with from_subaccount = args.from.subaccount}: ICRC1.TransferArgs)) {
-      case ( #Err(e) ) { return #Err(e) };
-      case _ { }
+    switch (checkVestingRestrictions(args.from.owner, { args with from_subaccount = args.from.subaccount } : ICRC1.TransferArgs)) {
+      case (#Err(e)) { return #Err(e) };
+      case _ {};
     };
     let trxResult = await* icrc2().transfer_from(caller, args);
     switch trxResult {
@@ -317,8 +342,8 @@ shared ({ caller = _owner }) actor class CustomToken(
   public query func getTransactionRange(start : Nat, _end : ?Nat) : async [ICRC1.Transaction] {
     let local_transactions = icrc1().get_local_transactions();
     let end = switch _end {
-      case null { 
-        Vec.size(local_transactions) 
+      case null {
+        Vec.size(local_transactions);
       };
       case (?val) {
         if (val > Vec.size(local_transactions)) { Vec.size(local_transactions) } else { val };

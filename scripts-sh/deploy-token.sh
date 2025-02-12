@@ -67,7 +67,7 @@
 # })'
 
 
-
+########################################################################
 # Ejemplo de metadata de ckBTC
 #(
 #   vec {
@@ -84,40 +84,47 @@
 #     record { "icrc1:max_memo_length"; variant { Nat = 80 : nat } };
 #   },
 # )
-# dfx deploy tour --argument '(
-#   record {
-#     fee = opt variant { Fixed = 10_000 : nat };
-#     advanced_settings = null;
-#     max_memo = opt (32 : nat);
-#     decimals = 8 : nat8;
-#     metadata = null;
-#     minting_account = opt record {
-#       owner = principal "xigzi-mf2wo-xch5n-4dlsf-5tq6n-pke7b-7w2tx-2fv4h-l3yvi-3ycr2-pae";
-#       subaccount = null;
-#     };
-#     logo = null;
-#     permitted_drift = null;
-#     name = opt "Triourism";
-#     settle_to_accounts = null;
-#     fee_collector = opt record {
-#       owner = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
-#       subaccount = null;
-#     };
-#     transaction_window = null;
-#     min_burn_amount = opt (50_000 : nat);
-#     max_supply = null;
-#     max_accounts = null;
-#     symbol = opt "TRI";
-#   },
-#   record {
-#     fee = null;
-#     advanced_settings = null;
-#     max_allowance = null;
-#     max_approvals = null;
-#     max_approvals_per_account = null;
-#     settle_to_approvals = null;
-#   }
-# )'
+######################################################################
+dfx identity new 0000InvNonVesting
+dfx identity use 0000InvNonVesting
+export InvNonVesting=$(dfx identity get-principal) 
+
+dfx identity new 0000InvVesting
+dfx identity use 0000InvVesting
+export InvVesting=$(dfx identity get-principal)
+
+dfx identity new 0000Founder01
+dfx identity use 0000Founder01
+export Founder01=$(dfx identity get-principal)
+
+dfx identity new 0000Founder02
+dfx identity use 0000Founder02
+export Founder02=$(dfx identity get-principal)
+
+dfx identity new 0000Founder03
+dfx identity use 0000Founder03
+export Founder03=$(dfx identity get-principal)
+
+dfx identity new 0000Minter
+dfx identity use 0000Minter
+export Minter=$(dfx identity get-principal)
+
+dfx identity new 0000FeeCollector
+dfx identity use 0000FeeCollector
+export FeeCollector=$(dfx identity get-principal)
+
+dfx identity new 0000Controller
+dfx identity use 0000Controller
+export Controller=$(dfx identity get-principal)
+
+
+
+
+dfx identity new 0000Deployer
+dfx identity use 0000Deployer
+export deployer=$(dfx identity get-principal)
+
+
 
 dfx deploy tour --argument '(
   variant {
@@ -139,25 +146,23 @@ dfx deploy tour --argument '(
         record { "icrc1:max_memo_length"; variant { Nat = 32 : nat } };
       };
       minting_account = record {
-        owner = principal "y77j5-4vnxl-ywos7-qjtcr-6iopc-i2ql2-iwoem-ehvwk-wruju-fr7ib-mae";
+        owner = principal "'$Minter'";
         subaccount = null;
       };
       initial_balances = vec {};
       fee_collector_account = opt record {
-        owner = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
+        owner = principal "'$FeeCollector'";
         subaccount = null;
       };
       archive_options = record {
         num_blocks_to_archive = 1_000 : nat64;
         max_transactions_per_response = null;
         trigger_threshold = 2_000 : nat64;
-        more_controller_ids = opt vec {
-          principal "d2alm-ajpbz-hohks-j3k3y-ulxfm-fegz6-jwopx-d2eu7-3ycil-hnxqa-hae";
-        };
+        more_controller_ids = null;
         max_message_size_bytes = null;
         cycles_for_archive_creation = opt (10_000_000_000_000 : nat64);
         node_max_memory_size_bytes = null;
-        controller_id = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
+        controller_id = principal "'$Controller'";
       };
       max_supply = 100_000_000_000_000 : nat;
       max_memo_length = opt (32 : nat);
@@ -175,41 +180,55 @@ dfx deploy tour --argument '(
           categoryName = "Founders";
           holders = vec {
             record {
-              owner = principal "xyhzp-zrjop-dxido-ehezj-ipucb-todkp-5reb5-oaxey-q2nce-4ss2t-yqe";
+              owner = principal "'$Founder01'";
               hasVesting = true;
-              allocatedAmount = 1_000_000_000 : nat;
+              allocatedAmount = 1_234_000_000 : nat;
             };
             record {
-              owner = principal "qcirp-tviue-bxtvo-bniam-zfaku-5yy25-h2dwp-cex5m-ojvxu-5b4zd-fae";
+              owner = principal "'$Founder02'";
               hasVesting = true;
-              allocatedAmount = 500_000_000 : nat;
+              allocatedAmount = 567_800_000 : nat;
             };
             record {
-              owner = principal "epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae";
+              owner = principal "'$Founder03'";
               hasVesting = true;
-              allocatedAmount = 500_000_000 : nat;
+              allocatedAmount = 901_200_000 : nat;
             };
           };
+          vestingSchemme = variant {
+            timeBasedVesting = record {
+              cliff = opt 1739329277;
+              intervalDuration = 30;
+              intervalQty = 4 : nat8;
+            }
+          }
         };
         record {
           categoryName = "Investors";
           holders = vec {
             record {
-              owner = principal "47enf-gshcb-jwiou-py5pm-nwzgv-y65n2-p6rsv-rknt2-wnl2o-2hcrc-4ae";
+              owner = principal "'$InvVesting'";
               hasVesting = true;
-              allocatedAmount = 4_500_000_000 : nat;
+              allocatedAmount = 4_000_000_000 : nat;
             };
+            record {
+              owner = principal "'$InvNonVesting'";
+              hasVesting = false;
+              allocatedAmount = 1_000_000_000 : nat;
+            };
+
           };
+          vestingSchemme = variant { 
+            timeBasedVesting = record {
+              cliff = opt 1739332877;
+              intervalDuration = 30;
+              intervalQty = 3 : nat8;
+            }
+          }
         };
-      };
-      vestingSchemme = variant {
-        timeBasedVesting = record {
-          duration = 2_700_000_000_000 : nat; 
-          cliff = null;
-          releaseRate = 100000000 : nat;
-          releaseInterval = 1_080_000_000_000 : nat;
-        }
       };
     };
   },
 )'
+
+dfx canister call tour initialize

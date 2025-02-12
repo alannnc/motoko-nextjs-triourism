@@ -1,56 +1,7 @@
 import ICRC1 "mo:icrc1-mo/ICRC1";
+import ICRC2 "mo:icrc2-mo/ICRC2";
 
 module {
-
-    // public type CustomArgs = {
-
-    // };
-
-    public type InitialDistribution = {
-        allocations : [{ categoryName : Text; holders : [InitialHolder] }];
-        vestingSchemme: {
-            #timeBasedVesting: TimeBasedVesting;
-            #mintBasedVesting: MintBasedVesting;
-        }
-    };
-
-    public type InitialHolder = {
-        owner : Principal;
-        allocatedAmount : Nat;
-        hasVesting : Bool;
-    };
-
-    public type TimeBasedVesting = {
-        cliff : ?Nat; // Comienzo del periodo de vesting. Si es null se toma la fecha del deploy
-        duration : Nat; // Duración del periodo de vesting desde el cliff
-        releaseRate : Nat; // Cantidad de tokens a liberar por periodo luego del periodo de vesting
-        releaseInterval : Nat; // Intervalo de tiempo en segundos entre cada liberación
-    };
-
-    ///// Revisar regla ////////////////////
-    public type MintBasedVesting = {
-        triggers : [{ totalSupply : Nat; releaseAmount : Nat }];
-        withdrawalRatio : Nat; //relacion entre el totalSupply actual y el maximo que se puede retirar en un solo trigger
-    };
-    public func mintBasedVestingValidate(mintBasedVesting : MintBasedVesting) : Bool {
-        var lastTrigger = { totalSupply = 0; releaseAmount = 0 };
-        let ratio = if (mintBasedVesting.withdrawalRatio < 500) {
-            500;
-        } else {
-            mintBasedVesting.withdrawalRatio;
-        };
-        for (t in mintBasedVesting.triggers.vals()) {
-            if (
-                t.totalSupply <= lastTrigger.totalSupply or
-                t.releaseAmount <= lastTrigger.releaseAmount or
-                t.totalSupply < t.releaseAmount * ratio
-            ) {
-                return false;
-            };
-            lastTrigger := t;
-        };
-        true;
-    };
 
     // Custom Errors
 
@@ -65,12 +16,21 @@ module {
           available_amount : Nat;
       };
     };
+
+    public type ApproveResponse = { 
+        #Ok : Nat; 
+        #Err : ApproveError 
+    };
+
+    public type ApproveError = ICRC2.ApproveError or {
+        #VestingRestriction : {
+          blocked_amount : Nat;
+          available_amount : Nat;
+      };
+    };
     ////////////////////////////////////////
 
-    public type VestingRule = {
-        timeBasedVesting : ?TimeBasedVesting;
-        mintBasedVesting : ?MintBasedVesting;
-    };
+    
 
     public type Account = { owner : Principal; subaccount : ?Blob };
 
