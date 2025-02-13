@@ -9,12 +9,21 @@ module {
     public type Allocation = {
         categoryName : Text;
         holders : [InitialHolder];
-        vestingSchemme : VestingSchemme;
+        vestingScheme : VestingScheme;
     };
 
-    public type VestingSchemme = {
+    public type VestingScheme = {
         #timeBasedVesting : TimeBasedVesting;
         #mintBasedVesting : MintBasedVesting;
+    };
+
+    public type VestingState = {
+        isBeforeCliff : Bool;
+        isFullyVested : Bool;      // Si ya se liberaron todos los tokens (currentTime >= endTime)
+        currentPeriodOverTotal: (Nat, Nat); 
+        vestedAmount : Nat;        // Cantidad total liberada hasta ahora
+        remainingAmount : Nat;     // Cantidad aún bloqueada
+        nextReleaseTime : ?Int;    // Timestamp del próximo release (null si ya terminó)
     };
 
     public type InitialHolder = {
@@ -24,7 +33,7 @@ module {
     };
 
     public type TimeBasedVesting = {
-        cliff : ?Nat; // Comienzo del periodo de vesting. Si es null se toma la fecha del deploy. Timestamp seg
+        cliff : ?Int; // Comienzo del periodo de vesting. Si es null se toma la fecha del deploy. Timestamp seg
         // duration : Nat; // Duración del periodo de vesting desde el cliff // comentado por redundante
         // releaseRate : Nat; // Cantidad de tokens a liberar por periodo luego del periodo de vesting. Opcion de nombre maxAmountPerRelease
         // El releaseRate se calcularia como ```amount / (intervalQty + 1)```

@@ -124,7 +124,9 @@ dfx identity new 0000Deployer
 dfx identity use 0000Deployer
 export deployer=$(dfx identity get-principal)
 
-
+timestamp=$(date +%s)
+cliff1=$((timestamp + 80))
+cliff2=$((timestamp + 120))
 
 dfx deploy tour --argument '(
   variant {
@@ -195,9 +197,9 @@ dfx deploy tour --argument '(
               allocatedAmount = 901_200_000 : nat;
             };
           };
-          vestingSchemme = variant {
+          vestingScheme = variant {
             timeBasedVesting = record {
-              cliff = opt 1739329277;
+              cliff = opt ('"$cliff1"');
               intervalDuration = 30;
               intervalQty = 4 : nat8;
             }
@@ -218,9 +220,9 @@ dfx deploy tour --argument '(
             };
 
           };
-          vestingSchemme = variant { 
+          vestingScheme = variant { 
             timeBasedVesting = record {
-              cliff = opt 1739332877;
+              cliff = opt ('"$cliff2"');
               intervalDuration = 30;
               intervalQty = 3 : nat8;
             }
