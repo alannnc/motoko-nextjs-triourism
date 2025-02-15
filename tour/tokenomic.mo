@@ -18,6 +18,7 @@ module {
     };
 
     public type VestingState = {
+        categoryName: Text;
         isBeforeCliff : Bool;
         isFullyVested : Bool;      // Si ya se liberaron todos los tokens (currentTime >= endTime)
         currentPeriodOverTotal: (Nat, Nat); 

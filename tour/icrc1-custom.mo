@@ -35,7 +35,7 @@ shared ({ caller = _owner }) actor class CustomToken(
   ///////////////////////////////// WARNING ///////////////////////////////////////
 
   // let NanosPerDay = 24 * 60 * 60 * 1_000_000_000; // Valor definitivo
-  let NanosPerDay =  1_000_000_000; // Valor para pruebas 1 dia = 1 segundo
+  let NanosPerDay =  2 * 1_000_000_000; // Valor para pruebas 1 dia = 4 segundo
 
   stable var distributionTimestamp: Int = 0;
 
@@ -84,7 +84,7 @@ shared ({ caller = _owner }) actor class CustomToken(
   ///////////////////////////////////// Flags //////////////////////////////////////
 
   stable var distributionComplete = false;
-  stable var vestingSchemes: [{scheme : Tokenomic.VestingScheme; ended : Bool }] = [];
+  stable var vestingSchemes: [{categoryName: Text; scheme : Tokenomic.VestingScheme; ended : Bool }] = [];
   stable var isLedgerReady = false;
 
   //////
@@ -168,7 +168,7 @@ shared ({ caller = _owner }) actor class CustomToken(
 
   /////////////////// Deploy indexer //////////////////
 
-  private func deploy_indexer() : async Principal {
+  func deploy_indexer() : async Principal {
     switch _indexer {
       case null {
         ExperimentalCycles.add<system>(2_000_000_000_000);
@@ -188,9 +188,14 @@ shared ({ caller = _owner }) actor class CustomToken(
   func distribution(allocations : [Tokenomic.Allocation]): async {#Ok; #Err: Text} {
     if (distributionComplete) { return #Err("Distribution is already complete")};
     for (distItem in allocations.vals()) {
-      vestingSchemes := Array.tabulate<{scheme : Tokenomic.VestingScheme; ended : Bool }>(
+      vestingSchemes := Array.tabulate<{categoryName: Text; scheme: Tokenomic.VestingScheme; ended : Bool }>(
         vestingSchemes.size() + 1, 
-        func i = if (i == 0) { {scheme = distItem.vestingScheme; ended = false} } else { vestingSchemes[i-1] }
+        func i = if (i == vestingSchemes.size()) { 
+            {categoryName = distItem.categoryName; scheme = distItem.vestingScheme; ended = false} 
+          } 
+          else { 
+            vestingSchemes[i] 
+          }
       );
       for ({ allocatedAmount; hasVesting; owner } in distItem.holders.vals()) {
         let mintArgs = {
@@ -220,16 +225,17 @@ shared ({ caller = _owner }) actor class CustomToken(
     distributionComplete := true;
     distributionTimestamp := now();
     #Ok
-
   };
 
   ////// Deploy de canister indexer y distribucion inicial  ///////
 
+  
+
   public shared ({ caller }) func initialize() : async { #Ok; #Err : Text } {
     assert (caller == _owner);
-
     let indexerCanisterId = await deploy_indexer();
     print("Indexer canister deployed at " # debug_show (indexerCanisterId));
+    
     switch ledgerArgs {
       case (#Init(_)) {
         switch (customArgs.distribution) {
@@ -257,17 +263,13 @@ shared ({ caller = _owner }) actor class CustomToken(
         } else {
           switch (vestingSchemes[schemeIndex].scheme) {
             case (#timeBasedVesting(scheme)) {
-              // let currentTime = now();
               let { period } = getCurrentPeriodVesting(scheme);
-              print(debug_show(period));
 
               if(period == 0) {
                 return value
               }
               else {
-                print("Value:   " # debug_show(value));
-                print("Blocked: " # debug_show((value * period) / Nat8.toNat(scheme.intervalQty + 1)));
-                return value -  (value * period) / Nat8.toNat(scheme.intervalQty + 1)
+                return value -  ((value * period) / Nat8.toNat(scheme.intervalQty))
               } 
             };
             case (_){ return 0 } // Otros esquemas a implementar
@@ -275,12 +277,10 @@ shared ({ caller = _owner }) actor class CustomToken(
           value
         } 
       };
-    };
-    
+    }; 
   };
 
   func checkVestingRestrictions(caller : Principal, trx : ICRC1.TransferArgs) : { #Ok; #Err : Types.TransferError; } {
-    // TODO ver esquema y status actual del vesting 
     let balance = icrc1().balance_of({ owner = caller; subaccount = null });
     let blocked_amount = calculateBlockedAmount(caller);
     if (blocked_amount == 0 ) { return #Ok };
@@ -306,22 +306,23 @@ shared ({ caller = _owner }) actor class CustomToken(
     icrc1().balance_of({ owner = caller; subaccount });
   };
 
+  // public shared ({ caller }) func available(): async Nat {
+  //   icrc1().balance_of({ owner = caller; subaccount = null }) - get;
+  // };
+
   func getCurrentPeriodVesting (scheme: Tokenomic.TimeBasedVesting) : {period: Nat; cliff: Int} {
     let currentTime = Int.abs(now());
     let cliff = switch (scheme.cliff) {
       case null { distributionTimestamp };
       case ( ?c ) { c * 1_000_000_000 }
     };
-    print("El timestamp actual en nSeg es:    +" # debug_show(currentTime));
-    print("El inicio del vesting (CLIFF) es : " # debug_show(cliff));
-    var period = 0;
-    var passedTime = 0: Int;
-    passedTime := cliff - currentTime;
-    while (currentTime > cliff + period * scheme.intervalDuration * NanosPerDay and period < Nat8.toNat(scheme.intervalQty)) {
-      print("El timestamp que da inicio al period " # debug_show(period) # " es " # debug_show(cliff + period * scheme.intervalDuration * NanosPerDay));
-      print("Periodo " # Nat.toText(period) # " transcurrido!"); 
-      period += 1;
-    };
+    var period = Int.abs( 
+      if (currentTime < cliff) { 0 } 
+      else {
+        let p = ((currentTime - cliff) / (scheme.intervalDuration * NanosPerDay) + 1 );
+        if ( p <= Nat8.toNat(scheme.intervalQty) ) { p } else { Nat8.toNat(scheme.intervalQty) }
+      }
+    );
     return {period; cliff}
   };
 
@@ -331,7 +332,9 @@ shared ({ caller = _owner }) actor class CustomToken(
       switch (vst.scheme) {
         case (#timeBasedVesting(scheme)) {
           let {period; cliff} = getCurrentPeriodVesting(scheme);
+          
           let state: Tokenomic.VestingState = {
+            categoryName = vst.categoryName;
             currentPeriodOverTotal = (period, Nat8.toNat(scheme.intervalQty));
             isBeforeCliff = period == 0;
             isFullyVested = period == Nat8.toNat(scheme.intervalQty);

@@ -125,8 +125,8 @@ dfx identity use 0000Deployer
 export deployer=$(dfx identity get-principal)
 
 timestamp=$(date +%s)
-cliff1=$((timestamp + 80))
-cliff2=$((timestamp + 120))
+cliffFounders=$((timestamp + 83))  #Primos 
+cliffInvestors=$((timestamp + 120)) #No Primos para que no coincida ningun release de una categoria con uno de la otra
 
 dfx deploy tour --argument '(
   variant {
@@ -153,8 +153,8 @@ dfx deploy tour --argument '(
       };
       initial_balances = vec {};
       fee_collector_account = opt record {
-        owner = principal "'$FeeCollector'";
-        subaccount = null;
+        owner = principal "'$Minter'";
+        subaccount = opt blob "FeeCollector00000000000000000000";
       };
       archive_options = record {
         num_blocks_to_archive = 1_000 : nat64;
@@ -184,24 +184,24 @@ dfx deploy tour --argument '(
             record {
               owner = principal "'$Founder01'";
               hasVesting = true;
-              allocatedAmount = 1_234_000_000 : nat;
+              allocatedAmount = 20_000_000_000 : nat;
             };
             record {
               owner = principal "'$Founder02'";
               hasVesting = true;
-              allocatedAmount = 567_800_000 : nat;
+              allocatedAmount = 20_000_000_000 : nat;
             };
             record {
               owner = principal "'$Founder03'";
               hasVesting = true;
-              allocatedAmount = 901_200_000 : nat;
+              allocatedAmount = 30_000_000_000 : nat;
             };
           };
           vestingScheme = variant {
             timeBasedVesting = record {
-              cliff = opt ('"$cliff1"');
-              intervalDuration = 30;
-              intervalQty = 4 : nat8;
+              cliff = opt ('"$cliffFounders"');
+              intervalDuration = 23;
+              intervalQty = 12 : nat8;
             }
           }
         };
@@ -211,20 +211,20 @@ dfx deploy tour --argument '(
             record {
               owner = principal "'$InvVesting'";
               hasVesting = true;
-              allocatedAmount = 4_000_000_000 : nat;
+              allocatedAmount = 450_000_000_000 : nat;
             };
             record {
               owner = principal "'$InvNonVesting'";
               hasVesting = false;
-              allocatedAmount = 1_000_000_000 : nat;
+              allocatedAmount = 480_000_000_000 : nat;
             };
 
           };
           vestingScheme = variant { 
             timeBasedVesting = record {
-              cliff = opt ('"$cliff2"');
-              intervalDuration = 30;
-              intervalQty = 3 : nat8;
+              cliff = opt ('"$cliffInvestors"');
+              intervalDuration = 27;
+              intervalQty = 6 : nat8;
             }
           }
         };
