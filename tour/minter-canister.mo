@@ -28,7 +28,8 @@ shared ({ caller = Deployer}) actor class() = this {
   ///////////////////// Variables de estado ///////////////////
 
     let NULL_ADDRESS = "aaaaa-aa";
-    let fees_collector_subaccount: ?Blob = ? "0\\1\\2\\3\\4\\5\\6\\7\\8\\9\\10\\11\\12\\13\\14\\15\\16\\17\\18\\19\\20\\21\\22\\23\\24\\25\\26\\27\\28\\29\\30\\31\\32";
+    let fees_collector_subaccount: ?Blob = ? "FeeCollector00000000000000000000"; // El Blob del subaccount tiene que medir 32 Bytes
+
 
     stable var LedgerActor = actor(NULL_ADDRESS): Ledger.CustomToken;
     stable var OldLedgerActor = actor(NULL_ADDRESS): Ledger.CustomToken; // Junto con restorePreviousLedger posiblemente innecesario
@@ -61,14 +62,24 @@ shared ({ caller = Deployer}) actor class() = this {
         #Ok
     };
 
-  //////////////////////////////////////  Getters  ///////////////////////////////////////////// epvyw-ddnza-4wy4p-joxft-ciutt-s7pji-cfxm3-khwlb-x2tb7-uo7tc-xae
+    func ledgerReady(): Bool { 
+        Principal.fromActor(LedgerActor) != Principal.fromText(NULL_ADDRESS)    
+    };
+
+
+  //////////////////////////////////////  Getters Fees dispersion  section ///////////////////////////////////////////// 
     
     public query func getFeeCollector(): async Account { 
         fee_collector 
     };
 
-    func ledgerReady(): Bool { 
-        Principal.fromActor(LedgerActor) != Principal.fromText(NULL_ADDRESS)    
+    public shared func getFeeCollectorBalance(): async Nat {
+      await LedgerActor.icrc1_balance_of({owner = Principal.fromActor(this); subaccount = fees_collector_subaccount})
+    };
+
+    public shared ({ caller }) func getFeesDispersionTable(): async FeesDispersionTable{
+      assert(caller == Deployer);
+      feesDispersionTable
     };
 
 

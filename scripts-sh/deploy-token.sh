@@ -166,7 +166,7 @@ dfx deploy tour --argument '(
         node_max_memory_size_bytes = null;
         controller_id = principal "'$Controller'";
       };
-      max_supply = 100_000_000_000_000 : nat;
+      max_supply = null;
       max_memo_length = opt (32 : nat);
       token_name = "$TOUR4";
       feature_flags = opt record { icrc2 = true };
@@ -175,7 +175,7 @@ dfx deploy tour --argument '(
   record {
     metadata = vec {};
     min_burn_amount = null;
-    max_supply = 100_000_000_000_000 : nat;
+    max_supply = null;
     distribution = opt record {
       allocations = vec {
         record {

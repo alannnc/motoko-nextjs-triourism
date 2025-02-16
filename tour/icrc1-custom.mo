@@ -26,7 +26,7 @@ shared ({ caller = _owner }) actor class CustomToken(
   ledgerArgs : Types.LedgerArgument,
   customArgs : {
     distribution : ?Tokenomic.InitialDistribution;
-    max_supply : Nat;
+    max_supply : ?Nat;
     metadata : [(Text, Types.MetadataValue)];
     min_burn_amount : ?Nat;
   },
@@ -54,7 +54,7 @@ shared ({ caller = _owner }) actor class CustomToken(
         logo = null;
         max_accounts = null;
         max_memo = initArgs.max_memo_length;
-        max_supply = ?customArgs.max_supply;
+        max_supply = customArgs.max_supply;
         metadata = null;
         min_burn_amount = customArgs.min_burn_amount;
         name = ?initArgs.token_name;

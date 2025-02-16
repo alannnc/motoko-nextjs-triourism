@@ -250,8 +250,7 @@ wait_with_countdown() {
     echo -e "\n[✅] Continuando con las pruebas\n"
 }
 
-# Simular paso del tiempo hasta el cliff de Founders (180 segundos)
-wait_with_countdown $((secondsWaiting + 1))
+wait_with_countdown $((secondsWaiting))
 
 echo -e "\n\n============= PRUEBAS DE TRANSACCIONES EN CASOS LÍMITE PARA FOUNDERS =============\n"
 
@@ -408,3 +407,5 @@ echo "La proxima liberación de fondos corresponde a la categoria: $nextCategory
 echo "Segundos restantes: $secondsWaiting"
 
 wait_with_countdown $((secondsWaiting + 1))
+
+

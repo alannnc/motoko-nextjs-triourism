@@ -75,7 +75,7 @@ module {
     public type InitArgs = {
         decimals : Nat8;
         token_symbol : Text;
-        max_supply : Nat;
+        max_supply : ?Nat;
         transfer_fee : Nat;
         metadata : [(Text, MetadataValue)];
         minting_account : Account;
