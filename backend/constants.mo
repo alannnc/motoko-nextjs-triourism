@@ -9,6 +9,7 @@ module {
     public let UnauthorizedCaller = "Unauthorized user";
     public let NotVerifiedUser = "The user is not verified";
     public let NotUser = "Unregistered user";
+    public let NotAdmin = "The caller is not admin";
     public let Anonymous = "Anonymous caller is not allowed";
     public let NotHostUser = "User is not Host User";
     public let CallerIsNotrequester = "The caller does not match the reservation requester";

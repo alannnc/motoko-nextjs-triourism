@@ -19,8 +19,11 @@ import { phash; nhash; n32hash; thash } "mo:map/Map";
 import Indexer_icp "./indexer_icp_token";
 import AccountIdentifier "mo:account-identifier";
 
+import Minter "../tour/minter-canister";
+
 import Types "types";
 import msg "constants";
+import MinterCanister "../tour/minter-canister";
 
 
 shared ({ caller = DEPLOYER }) actor class Triourism () = this {
@@ -46,9 +49,17 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
 
     type UpdateResult = Types.UpdateResult;
     type ResultHousingPaginate = {#Ok: {array: [HousingPreview]; hasNext: Bool}; #Err: Text};
-    
+    type RewardRatio = {
+        #ICP_DIVIDES_TOUR: Nat; // Reward = Ammount * Relación. Ejemplo para ICPvTourRewardRatio = #ICP_DIVIDES_TOUR(2): txAmount = 100 ICP -> recompenza = 200 Tour
+        #TOUR_DIVIDES_ICP: Nat; // Reward = Ammount / Relación. Ejemplo para ICPvTourRewardRatio = #TOUR_DIVIDES_ICP(2): txAmount = 100 ICP -> recompenza = 50 Tour
+    };
+
   
     // stable let DEPLOYER = caller;
+    let NULL_ADDRESS = "aaaaa-aa";
+
+    stable var TourMinterCanister: Minter.Minter = actor(NULL_ADDRESS);
+    stable var TourLedgerCanisterID = NULL_ADDRESS;
 
     // /////////////// WARNING modificar estas variables en produccion a los valores reales  ////
     let nanoSecPerDay = 30 * 1_000_000_000;             // Test Transcurso acelerado de los dias
@@ -63,8 +74,9 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     stable var TimeToPay = 15 * 1_000_000_000;          // Tiempo en nanosegundos para confirmar la reserva mediante pago
     // stable var TimeToPay = 30 * 60 * 1_000_000_000;  // Tiempo sugerido 30 minutos
     stable var MinDaysBeforeCheckinForCancellation = 4; // Minimo de dias antes del checkin para cancelar una reserva pagando CancellationFeeCompensateBuyer
-    
 
+    stable var ICPvTourRewardRatio: RewardRatio = #TOUR_DIVIDES_ICP(2);  
+    
     //////////////////////////////// Core Data Structures ///////////////////////
      
     stable let admins = Set.new<Principal>();
@@ -267,7 +279,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         reviews = List.nil<Nat>();
     };
 
-    /////////////////////////// Manage admins functions /////////////////////////////////
+    ///////////////////////////  Admins functions /////////////////////////////////
 
     public shared ({ caller }) func addAdmin(p: Principal): async  {#Ok; #Err} {
         if(not isAdmin(caller)){ 
@@ -294,6 +306,35 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             timeToPay = TimeToPay;
             minDaysBeforeCheckinForCancellation = MinDaysBeforeCheckinForCancellation;
         }
+    };
+
+    public shared ({ caller }) func setMinter(m: Principal): async {#Ok; #Err: Text} {
+        if(not isAdmin(caller)) { return #Err(msg.NotAdmin) };
+        TourMinterCanister := actor(Principal.toText(m));
+        TourLedgerCanisterID := Principal.toText(await TourMinterCanister.getLedgerCanisterId());
+        #Ok
+    };
+
+    public shared ({ caller }) func getMinterCanisterId(): async Principal {
+        if(not isAdmin(caller)) { return Principal.fromText(NULL_ADDRESS) };
+        Principal.fromActor(TourMinterCanister);
+        
+    };
+
+    public shared ({ caller }) func getUserTourBalance(): async Nat {
+        if(TourLedgerCanisterID != NULL_ADDRESS){
+            let ledger = actor(TourLedgerCanisterID): actor {
+                icrc1_balance_of : shared Principal -> async Nat
+            };
+            return await ledger.icrc1_balance_of(caller);
+        };
+        0
+    };
+
+    public shared ({ caller }) func setICPvTourRewardRatio(ratio: RewardRatio): async {#Ok; #Err}{
+        if(not isAdmin(caller)) { return #Err };
+        ICPvTourRewardRatio := ratio;
+        #Ok
     };
 
     public shared ({ caller }) func updateSettings(config: Types.Settings): async Bool{
@@ -1210,6 +1251,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                     if(reservation.requester != caller) { 
                         return #Err(msg.CallerIsNotRequester # Nat.toText(reservationId))
                     };
+                  
                     let housing = Map.get<HousingId, Housing>(housings, nhash, reservation.housingId);
                     switch housing {
                         case null { #Err(msg.NotHousing)};
@@ -1234,6 +1276,21 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                                 reservation.housingId, 
                                 { housing with calendary; reservationsPending }
                             );
+                        /////// Rewards for confirm reservation ////////////////////////////////////////////////////
+                            if (Principal.fromActor(TourMinterCanister) != Principal.fromText(NULL_ADDRESS)){
+                                ignore TourMinterCanister.rewardMint(
+                                    {
+                                        to = {owner = caller; subaccount = null};
+                                        amount = switch ICPvTourRewardRatio{
+                                            case (#ICP_DIVIDES_TOUR(r)) { Nat64.toNat(reservation.amount) * r };
+                                            case (#TOUR_DIVIDES_ICP(r)) { Nat64.toNat(reservation.amount) / r };
+                                        };
+                                        created_at_time = ?Nat64.fromNat(Int.abs(now()));
+                                        memo = null;
+                                    }
+                                );
+                            };
+                        ////////////////////////////////////////////////////////////////////////////////////////////
                             #Ok(currentReservation)
                         }
                     }

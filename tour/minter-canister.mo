@@ -2,10 +2,12 @@ import Principal "mo:base/Principal";
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
 import Ledger "icrc1-custom";
+import ICRC1 "mo:icrc1-mo/ICRC1";
 
-/// Este canister debe ser desplegado antes que el ledger
+/// Este canister debe ser desplegado despues de Triourism y antes del Tour ledger
 
-shared ({ caller = Deployer}) actor class() = this {
+shared ({ caller = Deployer}) actor class Minter({triourismCanisterId: Principal}) = this {
+
 
   //////////////// Si crece mover a un archivo de tipos ///////
     type Account = {owner: Principal; subaccount: ?Blob};
@@ -28,10 +30,12 @@ shared ({ caller = Deployer}) actor class() = this {
   ///////////////////// Variables de estado ///////////////////
 
     let NULL_ADDRESS = "aaaaa-aa";
+   
     let fees_collector_subaccount: ?Blob = ? "FeeCollector00000000000000000000"; // El Blob del subaccount tiene que medir 32 Bytes
 
 
     stable var LedgerActor = actor(NULL_ADDRESS): Ledger.CustomToken;
+    stable let TriourismCanisterId = triourismCanisterId;
     stable var OldLedgerActor = actor(NULL_ADDRESS): Ledger.CustomToken; // Junto con restorePreviousLedger posiblemente innecesario
     stable var feesDispersionTable: FeesDispersionTable = {toBurnPermille = 0; receivers = []};
     stable let fee_collector: Account = {owner = Principal.fromActor(this); subaccount = fees_collector_subaccount };
@@ -66,6 +70,10 @@ shared ({ caller = Deployer}) actor class() = this {
         Principal.fromActor(LedgerActor) != Principal.fromText(NULL_ADDRESS)    
     };
 
+    // func isAllowedToMint(p: Principal): Bool {
+    //   p == TriourismCanisterId or false
+    // };
+
 
   //////////////////////////////////////  Getters Fees dispersion  section ///////////////////////////////////////////// 
     
@@ -80,6 +88,17 @@ shared ({ caller = Deployer}) actor class() = this {
     public shared ({ caller }) func getFeesDispersionTable(): async FeesDispersionTable{
       assert(caller == Deployer);
       feesDispersionTable
+    };
+
+    public query func getLedgerCanisterId(): async Principal {
+      Principal.fromActor(LedgerActor);
+    };
+
+  /////////////////////////////////////// Mint section ////////////////////////////////////////////////////////////////
+
+    public shared ({ caller }) func rewardMint(args: ICRC1.Mint): async ICRC1.TransferResult{
+      assert(caller == TriourismCanisterId and ledgerReady());
+      await LedgerActor.mint(args);
     };
 
 
