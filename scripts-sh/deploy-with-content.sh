@@ -1,8 +1,8 @@
 #!/bin/bash
 # ------------ Usuario deployer ------------
-dfx identity new 0000TestUser0
-dfx identity use 0000TestUser0
-dfx deploy backend
+# dfx identity new 0000TestUser0
+# dfx identity use 0000TestUser0
+# dfx deploy backend
 
 # ------------ Usuario Host 1 --------------
 dfx identity new 0000TestUser1
@@ -228,8 +228,8 @@ dfx canister call backend confirmReservation '(record {
 dfx identity use 0000TestUser6
 dfx canister call backend requestReservation '(record {
   housingId = 1; 
-  checkIn = 6; 
-  checkOut = 7; 
+  checkIn = 21; 
+  checkOut = 31; 
   guest = "Carlos";
   email = "carlos@gmil.com";
   phone = 536657090
@@ -239,7 +239,7 @@ dfx canister call backend requestReservation '(record {
 
 # ------------ Usuario 6 confirma la reserva
 dfx canister call backend confirmReservation '(record {
-  reservationId  = 3; 
+  reservationId  = 10; 
   txData = record {
     to = "walletHousingInRequest"; 
     amount = 4_000_000_000; 

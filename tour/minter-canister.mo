@@ -3,8 +3,10 @@ import Blob "mo:base/Blob";
 import Text "mo:base/Text";
 import Ledger "icrc1-custom";
 import ICRC1 "mo:icrc1-mo/ICRC1";
+import { print } "mo:base/Debug";
 
-/// Este canister debe ser desplegado despues de Triourism y antes del Tour ledger
+/// Este canister debe ser desplegado despues de Triourism y antes del Tour ledger. 
+// Luego de desplegado el Ledger ejecutar setLedger con el ledeger canister ID
 
 shared ({ caller = Deployer}) actor class Minter({triourismCanisterId: Principal}) = this {
 
@@ -38,7 +40,7 @@ shared ({ caller = Deployer}) actor class Minter({triourismCanisterId: Principal
     stable let TriourismCanisterId = triourismCanisterId;
     stable var OldLedgerActor = actor(NULL_ADDRESS): Ledger.CustomToken; // Junto con restorePreviousLedger posiblemente innecesario
     stable var feesDispersionTable: FeesDispersionTable = {toBurnPermille = 0; receivers = []};
-    stable let fee_collector: Account = {owner = Principal.fromActor(this); subaccount = fees_collector_subaccount };
+    
 
   /////////////////////// Settings //////////////////////////////////////////////////////////////////
 
@@ -78,7 +80,7 @@ shared ({ caller = Deployer}) actor class Minter({triourismCanisterId: Principal
   //////////////////////////////////////  Getters Fees dispersion  section ///////////////////////////////////////////// 
     
     public query func getFeeCollector(): async Account { 
-        fee_collector 
+        {owner = Principal.fromActor(this); subaccount = fees_collector_subaccount} 
     };
 
     public shared func getFeeCollectorBalance(): async Nat {
@@ -97,7 +99,9 @@ shared ({ caller = Deployer}) actor class Minter({triourismCanisterId: Principal
   /////////////////////////////////////// Mint section ////////////////////////////////////////////////////////////////
 
     public shared ({ caller }) func rewardMint(args: ICRC1.Mint): async ICRC1.TransferResult{
+      print("Minter recibiendo llamada");
       assert(caller == TriourismCanisterId and ledgerReady());
+      print("Llamada aceptada");
       await LedgerActor.mint(args);
     };
 

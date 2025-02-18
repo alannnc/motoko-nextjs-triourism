@@ -23,8 +23,6 @@ import Minter "../tour/minter-canister";
 
 import Types "types";
 import msg "constants";
-import MinterCanister "../tour/minter-canister";
-
 
 shared ({ caller = DEPLOYER }) actor class Triourism () = this {
 
@@ -69,11 +67,11 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
 
     ////////////////////////////////// Global Configuration Parameters //////////////////////////////////////
 
-    stable var CancellationFeeCompensateBuyer: Nat64 = 5; //Percentage added to the buyer's refund
-    stable var ReservationFee: Nat64 = 10;                      //Percentage of the total reservation price
-    stable var TimeToPay = 15 * 1_000_000_000;          // Tiempo en nanosegundos para confirmar la reserva mediante pago
-    // stable var TimeToPay = 30 * 60 * 1_000_000_000;  // Tiempo sugerido 30 minutos
-    stable var MinDaysBeforeCheckinForCancellation = 4; // Minimo de dias antes del checkin para cancelar una reserva pagando CancellationFeeCompensateBuyer
+    stable var CancellationFeeCompensateBuyer: Nat64 = 5; // Percentage added to the buyer's refund
+    stable var ReservationFee: Nat64 = 10;                // Percentage of the total reservation price
+    stable var TimeToPay = 15 * 1_000_000_000;            // Tiempo en nanosegundos para confirmar la reserva mediante pago
+    // stable var TimeToPay = 30 * 60 * 1_000_000_000;    // Tiempo sugerido 30 minutos
+    stable var MinDaysBeforeCheckinForCancellation = 4;   // Minimo de dias antes del checkin para cancelar una reserva pagando CancellationFeeCompensateBuyer
 
     stable var ICPvTourRewardRatio: RewardRatio = #TOUR_DIVIDES_ICP(2);  
     
@@ -321,12 +319,12 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         
     };
 
-    public shared ({ caller }) func getUserTourBalance(): async Nat {
+    public shared ({ caller }) func getUserTourBalance(subaccount: ?Blob): async Nat {
         if(TourLedgerCanisterID != NULL_ADDRESS){
             let ledger = actor(TourLedgerCanisterID): actor {
-                icrc1_balance_of : shared Principal -> async Nat
+                icrc1_balance_of : shared {owner: Principal; subaccount: ?Blob} -> async Nat
             };
-            return await ledger.icrc1_balance_of(caller);
+            return await ledger.icrc1_balance_of({owner = caller; subaccount});
         };
         0
     };
@@ -1009,7 +1007,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         var reservationsPendingForTheProvidedID: [Nat] = [];
         for ((id, reservation) in Map.toArray<Nat, Reservation>(reservationsPendingConfirmation).vals()) {
             if (now() > reservation.date + TimeToPay) {
-                print("Solicitud de reserva " # Nat.toText(id) # " Eliminada por timeout");
+                // print("Solicitud de reserva " # Nat.toText(id) # " Eliminada por timeout");
                 ignore Map.remove<Nat, Reservation>(reservationsPendingConfirmation, nhash, id);
                 let housing = Map.get<HousingId, Housing>(housings, nhash, reservation.housingId);
                 switch housing {
@@ -1019,8 +1017,8 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                             housing.reservationsPending,
                             func x = x != id
                         );
-                        print("Id de solicitud " # Nat.toText(id) # " borrado\nreservas pendientes: ");
-                        print(debug_show(reservationsPending)); // revisar el filter
+                        // print("Id de solicitud " # Nat.toText(id) # " borrado\nreservas pendientes: ");
+                        // print(debug_show(reservationsPending)); // revisar el filter
                         if (id == housingId ) { reservationsPendingForTheProvidedID := reservationsPending };
                         ignore Map.put<HousingId, Housing>(housings, nhash, reservation.housingId, {housing with reservationsPending});
                     }
@@ -1040,7 +1038,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                     // Si la solicitud es antigua se elimina del map y se devuelte el id para limpiar
                     if ( now() > reservation.date + TimeToPay) {
                         ignore Map.remove<Nat, Reservation>(reservationsPendingConfirmation, nhash, id);
-                        print("reserva " # Nat.toText(id) # " eliminada");
+                        // print("reserva " # Nat.toText(id) # " eliminada");
                     } else {
                         bufferReservations.add(reservation);
                         bufferReservUpdate.add(id);
@@ -1139,7 +1137,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                     func (a, b) = if (a.minimumDays < b.minimumDays) { #less } else { #greater } 
                 );
                 for(discount in discounts.vals()){
-                    print(debug_show(discount));
+                    // print(debug_show(discount));
                     if(days < discount.minimumDays) { return Nat64.fromNat((price.base * days) - (price.base * days * currentDiscount / 100)) };
                     currentDiscount := discount.discount;   
                 };
@@ -1267,7 +1265,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                                 housing.calendary.reservations.size() + 1,
                                 func x = if (x == 0) { currentReservation } else { housing.calendary.reservations[x - 1] })
                             };
-                            print(debug_show(calendary));
+                            // print(debug_show(calendary));
                             let reservationsPending = Array.filter<Nat>(housing.reservationsPending, func x = x !=reservationId );
                             ignore Map.put<Nat, Reservation>(reservationsHistory, nhash, reservationId, currentReservation);
                             ignore Map.put<HousingId, Housing>(
@@ -1276,21 +1274,24 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                                 reservation.housingId, 
                                 { housing with calendary; reservationsPending }
                             );
-                        /////// Rewards for confirm reservation ////////////////////////////////////////////////////
+                        ///// Rewards for confirm reservation ////////////////////////////////////////////////////
                             if (Principal.fromActor(TourMinterCanister) != Principal.fromText(NULL_ADDRESS)){
-                                ignore TourMinterCanister.rewardMint(
+                                let mintAmount = switch ICPvTourRewardRatio{
+                                    case (#ICP_DIVIDES_TOUR(r)) { Nat64.toNat(reservation.amount) * r };
+                                    case (#TOUR_DIVIDES_ICP(r)) { Nat64.toNat(reservation.amount) / r };
+                                };
+                                print("Mintenado recompenza: " # debug_show(mintAmount) # " Tour");
+
+                                ignore await TourMinterCanister.rewardMint( //
                                     {
                                         to = {owner = caller; subaccount = null};
-                                        amount = switch ICPvTourRewardRatio{
-                                            case (#ICP_DIVIDES_TOUR(r)) { Nat64.toNat(reservation.amount) * r };
-                                            case (#TOUR_DIVIDES_ICP(r)) { Nat64.toNat(reservation.amount) / r };
-                                        };
+                                        amount = mintAmount;
                                         created_at_time = ?Nat64.fromNat(Int.abs(now()));
                                         memo = null;
                                     }
                                 );
                             };
-                        ////////////////////////////////////////////////////////////////////////////////////////////
+                        //////////////////////////////////////////////////////////////////////////////////////////
                             #Ok(currentReservation)
                         }
                     }

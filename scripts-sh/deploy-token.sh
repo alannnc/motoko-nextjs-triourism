@@ -105,34 +105,24 @@ dfx identity new 0000Founder03
 dfx identity use 0000Founder03
 export Founder03=$(dfx identity get-principal)
 
-dfx identity new 0000Minter
-dfx identity use 0000Minter
-export Minter=$(dfx identity get-principal)
-
-dfx identity new 0000FeeCollector
-dfx identity use 0000FeeCollector
-export FeeCollector=$(dfx identity get-principal)
 
 dfx identity new 0000Controller
 dfx identity use 0000Controller
 export Controller=$(dfx identity get-principal)
 
-
-
-
-dfx identity new 0000Deployer
-dfx identity use 0000Deployer
+dfx identity use triourism
 export deployer=$(dfx identity get-principal)
+export minterCanister=$(dfx canister id icrc1_minter_canister)
 
 timestamp=$(date +%s)
-cliffFounders=$((timestamp + 83))  #Primos 
-cliffInvestors=$((timestamp + 120)) #No Primos para que no coincida ningun release de una categoria con uno de la otra
+cliffFounders=$((timestamp + 83))   
+cliffInvestors=$((timestamp + 120)) 
 
 dfx deploy tour --argument '(
   variant {
     Init = record {
       decimals = 8 : nat8;
-      token_symbol = "TOUR4";
+      token_symbol = "TOUR";
       transfer_fee = 10_000 : nat;
       metadata = vec {
         record {
@@ -142,18 +132,18 @@ dfx deploy tour --argument '(
           };
         };
         record { "icrc1:decimals"; variant { Nat = 8 : nat } };
-        record { "icrc1:name"; variant { Text = "TOUR4" } };
-        record { "icrc1:symbol"; variant { Text = "$TOUR4" } };
+        record { "icrc1:name"; variant { Text = "TOUR" } };
+        record { "icrc1:symbol"; variant { Text = "$TOUR" } };
         record { "icrc1:fee"; variant { Nat = 10_000 : nat } };
         record { "icrc1:max_memo_length"; variant { Nat = 32 : nat } };
       };
       minting_account = record {
-        owner = principal "'$Minter'";
+        owner = principal "'$minterCanister'";
         subaccount = null;
       };
       initial_balances = vec {};
       fee_collector_account = opt record {
-        owner = principal "'$Minter'";
+        owner = principal "'$minterCanister'";
         subaccount = opt blob "FeeCollector00000000000000000000";
       };
       archive_options = record {
@@ -168,7 +158,7 @@ dfx deploy tour --argument '(
       };
       max_supply = null;
       max_memo_length = opt (32 : nat);
-      token_name = "$TOUR4";
+      token_name = "$TOUR";
       feature_flags = opt record { icrc2 = true };
     }
   },
