@@ -185,6 +185,7 @@ shared ({ caller = _owner }) actor class CustomToken(
 
   //////////////// Initial Distribution ////////////////
 
+
   func distribution(allocations : [Tokenomic.Allocation]): async {#Ok; #Err: Text} {
     if (distributionComplete) { return #Err("Distribution is already complete")};
     for (distItem in allocations.vals()) {
@@ -229,13 +230,10 @@ shared ({ caller = _owner }) actor class CustomToken(
 
   ////// Deploy de canister indexer y distribucion inicial  ///////
 
-  
-
   public shared ({ caller }) func initialize() : async { #Ok; #Err : Text } {
     assert (caller == _owner);
     let indexerCanisterId = await deploy_indexer();
     print("Indexer canister deployed at " # debug_show (indexerCanisterId));
-    
     switch ledgerArgs {
       case (#Init(_)) {
         switch (customArgs.distribution) {
@@ -452,6 +450,7 @@ shared ({ caller = _owner }) actor class CustomToken(
 
   // Deposit cycles into this canister.
   public shared func deposit_cycles() : async () {
+
     let amount = ExperimentalCycles.available();
     let accepted = ExperimentalCycles.accept<system>(amount);
     assert (accepted == amount);

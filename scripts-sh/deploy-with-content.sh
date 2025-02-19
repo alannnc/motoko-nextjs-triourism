@@ -236,10 +236,9 @@ dfx canister call backend requestReservation '(record {
 })'
 
 
-
 # ------------ Usuario 6 confirma la reserva
 dfx canister call backend confirmReservation '(record {
-  reservationId  = 10; 
+  reservationId  = 4; 
   txData = record {
     to = "walletHousingInRequest"; 
     amount = 4_000_000_000; 

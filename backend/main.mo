@@ -73,7 +73,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     // stable var TimeToPay = 30 * 60 * 1_000_000_000;    // Tiempo sugerido 30 minutos
     stable var MinDaysBeforeCheckinForCancellation = 4;   // Minimo de dias antes del checkin para cancelar una reserva pagando CancellationFeeCompensateBuyer
 
-    stable var ICPvTourRewardRatio: RewardRatio = #TOUR_DIVIDES_ICP(2);  
+    stable var ICPvTourRewardRatio: RewardRatio = #TOUR_DIVIDES_ICP(2);
     
     //////////////////////////////// Core Data Structures ///////////////////////
      
@@ -315,8 +315,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
 
     public shared ({ caller }) func getMinterCanisterId(): async Principal {
         if(not isAdmin(caller)) { return Principal.fromText(NULL_ADDRESS) };
-        Principal.fromActor(TourMinterCanister);
-        
+        Principal.fromActor(TourMinterCanister);   
     };
 
     public shared ({ caller }) func getUserTourBalance(subaccount: ?Blob): async Nat {
@@ -1282,7 +1281,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                                 };
                                 print("Mintenado recompenza: " # debug_show(mintAmount) # " Tour");
 
-                                ignore await TourMinterCanister.rewardMint( //
+                                let mintToGuest = TourMinterCanister.rewardMint( //
                                     {
                                         to = {owner = caller; subaccount = null};
                                         amount = mintAmount;
@@ -1290,6 +1289,16 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                                         memo = null;
                                     }
                                 );
+                                let mintToHost = TourMinterCanister.rewardMint( //
+                                    {
+                                        to = {owner = housing.owner; subaccount = null};
+                                        amount = mintAmount;
+                                        created_at_time = ?Nat64.fromNat(Int.abs(now()));
+                                        memo = null;
+                                    }
+                                );
+                                ignore await mintToGuest;
+                                ignore await mintToHost;
                             };
                         //////////////////////////////////////////////////////////////////////////////////////////
                             #Ok(currentReservation)
