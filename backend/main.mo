@@ -18,6 +18,7 @@ import Set "mo:map/Set";
 import { phash; nhash; n32hash; thash } "mo:map/Map";
 import Indexer_icp "./indexer_icp_token";
 import AccountIdentifier "mo:account-identifier";
+import IC "ic:aaaaa-aa";
 
 import Minter "../tour/minter-canister";
 
@@ -73,7 +74,8 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     // stable var TimeToPay = 30 * 60 * 1_000_000_000;    // Tiempo sugerido 30 minutos
     stable var MinDaysBeforeCheckinForCancellation = 4;   // Minimo de dias antes del checkin para cancelar una reserva pagando CancellationFeeCompensateBuyer
 
-    stable var ICPvTourRewardRatio: RewardRatio = #TOUR_DIVIDES_ICP(2);
+    stable var ICPvTourRewardRatio: RewardRatio = #TOUR_DIVIDES_ICP(2); // Cambiar por un Nat
+    stable var RewardRatio: Nat64 = 1000; // eg. RewardRatio = 1000; -> 1000 USD = 1 Tour
     
     //////////////////////////////// Core Data Structures ///////////////////////
      
@@ -331,6 +333,12 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     public shared ({ caller }) func setICPvTourRewardRatio(ratio: RewardRatio): async {#Ok; #Err}{
         if(not isAdmin(caller)) { return #Err };
         ICPvTourRewardRatio := ratio;
+        #Ok
+    };
+
+    public shared ({ caller }) func serRewardRatio(v: Nat64): async {#Ok; #Err}{
+        if(not isAdmin(caller)) { return #Err };
+        RewardRatio := v;
         #Ok
     };
 
@@ -1239,6 +1247,12 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         }
     };
 
+    func calculateReward(amount: Nat64, coin: Text): async  Nat64 {
+        let urlApi = "https://api3.binance.com/api/v3/ticker/price?symbol=" # Text.toUppercase(coin) # "USDT";
+        //TODO convertir amount al equivalente en usdt
+        1 * amount / RewardRatio;
+    };
+
     public shared ({ caller }) func confirmReservation({reservationId: Nat; txData: DataTransaction}): async {#Ok: Reservation; #Err: Text} {
         let reservation = Map.remove<Nat, Reservation>(reservationsPendingConfirmation, nhash, reservationId);
         switch reservation {
@@ -1274,31 +1288,15 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                                 { housing with calendary; reservationsPending }
                             );
                         ///// Rewards for confirm reservation ////////////////////////////////////////////////////
+                            // TODO calcular recompenza en base al aquialente en dolares de reservation.amount
                             if (Principal.fromActor(TourMinterCanister) != Principal.fromText(NULL_ADDRESS)){
-                                let mintAmount = switch ICPvTourRewardRatio{
-                                    case (#ICP_DIVIDES_TOUR(r)) { Nat64.toNat(reservation.amount) * r };
-                                    case (#TOUR_DIVIDES_ICP(r)) { Nat64.toNat(reservation.amount) / r };
-                                };
-                                print("Mintenado recompenza: " # debug_show(mintAmount) # " Tour");
-
-                                let mintToGuest = TourMinterCanister.rewardMint( //
-                                    {
-                                        to = {owner = caller; subaccount = null};
-                                        amount = mintAmount;
-                                        created_at_time = ?Nat64.fromNat(Int.abs(now()));
-                                        memo = null;
-                                    }
-                                );
-                                let mintToHost = TourMinterCanister.rewardMint( //
-                                    {
-                                        to = {owner = housing.owner; subaccount = null};
-                                        amount = mintAmount;
-                                        created_at_time = ?Nat64.fromNat(Int.abs(now()));
-                                        memo = null;
-                                    }
-                                );
-                                ignore await mintToGuest;
-                                ignore await mintToHost;
+                                let rewardAmount = await calculateReward(reservation.amount, "ICP"); 
+                                print("Mintenado recompenza: " # debug_show(rewardAmount) # " Tour");
+                                let accounts = [
+                                    {owner = caller; subaccount = null },
+                                    {owner = housing.owner; subaccount = null}
+                                ];
+                                ignore await TourMinterCanister.issueRewards({accounts; amount = rewardAmount })   
                             };
                         //////////////////////////////////////////////////////////////////////////////////////////
                             #Ok(currentReservation)
@@ -1396,7 +1394,5 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             }
         }
     };
-  
-
 };
 

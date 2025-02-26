@@ -35,9 +35,9 @@ shared ({ caller = _owner }) actor class CustomToken(
   ///////////////////////////////// WARNING ///////////////////////////////////////
 
   // let NanosPerDay = 24 * 60 * 60 * 1_000_000_000; // Valor definitivo
-  let NanosPerDay =  2 * 1_000_000_000; // Valor para pruebas 1 dia = 4 segundo
+  let NanosPerDay = 2 * 1_000_000_000; // Valor para pruebas 1 dia = 4 segundo
 
-  stable var distributionTimestamp: Int = 0;
+  stable var distributionTimestamp : Int = 0;
 
   //////////////////////////////////////////////////////////////////////////////////
 
@@ -84,7 +84,7 @@ shared ({ caller = _owner }) actor class CustomToken(
   ///////////////////////////////////// Flags //////////////////////////////////////
 
   stable var distributionComplete = false;
-  stable var vestingSchemes: [{categoryName: Text; scheme : Tokenomic.VestingScheme; ended : Bool }] = [];
+  stable var vestingSchemes : [{ categoryName : Text; scheme : Tokenomic.VestingScheme; ended : Bool }] = [];
   stable var isLedgerReady = false;
 
   //////
@@ -185,18 +185,16 @@ shared ({ caller = _owner }) actor class CustomToken(
 
   //////////////// Initial Distribution ////////////////
 
-
-  func distribution(allocations : [Tokenomic.Allocation]): async {#Ok; #Err: Text} {
-    if (distributionComplete) { return #Err("Distribution is already complete")};
+  func distribution(allocations : [Tokenomic.Allocation]) : async { #Ok; #Err : Text } {
+    if (distributionComplete) { return #Err("Distribution is already complete") };
     for (distItem in allocations.vals()) {
-      vestingSchemes := Array.tabulate<{categoryName: Text; scheme: Tokenomic.VestingScheme; ended : Bool }>(
-        vestingSchemes.size() + 1, 
-        func i = if (i == vestingSchemes.size()) { 
-            {categoryName = distItem.categoryName; scheme = distItem.vestingScheme; ended = false} 
-          } 
-          else { 
-            vestingSchemes[i] 
-          }
+      vestingSchemes := Array.tabulate<{ categoryName : Text; scheme : Tokenomic.VestingScheme; ended : Bool }>(
+        vestingSchemes.size() + 1,
+        func i = if (i == vestingSchemes.size()) {
+          { categoryName = distItem.categoryName; scheme = distItem.vestingScheme; ended = false };
+        } else {
+          vestingSchemes[i];
+        },
       );
       for ({ allocatedAmount; hasVesting; owner } in distItem.holders.vals()) {
         let mintArgs = {
@@ -218,14 +216,14 @@ shared ({ caller = _owner }) actor class CustomToken(
             holdersVesting,
             phash,
             owner,
-            { value = allocatedAmount; schemeIndex =  vestingSchemes.size() - 1},
+            { value = allocatedAmount; schemeIndex = vestingSchemes.size() - 1 },
           );
         };
       };
     };
     distributionComplete := true;
     distributionTimestamp := now();
-    #Ok
+    #Ok;
   };
 
   ////// Deploy de canister indexer y distribucion inicial  ///////
@@ -238,7 +236,7 @@ shared ({ caller = _owner }) actor class CustomToken(
       case (#Init(_)) {
         switch (customArgs.distribution) {
           case (?dist) {
-            return  await distribution(dist.allocations);
+            return await distribution(dist.allocations);
           };
           case (_) { return #Ok };
         };
@@ -252,36 +250,40 @@ shared ({ caller = _owner }) actor class CustomToken(
 
   stable let holdersVesting = Map.new<Principal, { value : Nat; schemeIndex : Nat }>();
 
-  func calculateBlockedAmount(p: Principal): Nat {
+  func calculateBlockedAmount(p : Principal) : Nat {
     switch (Map.get<Principal, { value : Nat; schemeIndex : Nat }>(holdersVesting, phash, p)) {
       case null { return 0 };
       case (?{ value; schemeIndex }) {
-        if(vestingSchemes[schemeIndex].ended) { 
+        if (vestingSchemes[schemeIndex].ended) {
           return 0;
         } else {
           switch (vestingSchemes[schemeIndex].scheme) {
             case (#timeBasedVesting(scheme)) {
               let { period } = getCurrentPeriodVesting(scheme);
 
-              if(period == 0) {
-                return value
-              }
-              else {
-                return value -  ((value * period) / Nat8.toNat(scheme.intervalQty))
-              } 
+              if (period == 0) {
+                return value;
+              } else {
+                return value - ((value * period) / Nat8.toNat(scheme.intervalQty));
+              };
             };
-            case (_){ return 0 } // Otros esquemas a implementar
+            case (_) { return 0 } // Otros esquemas a implementar
           };
-          value
-        } 
+          value;
+        };
       };
-    }; 
+    };
   };
 
-  func checkVestingRestrictions(caller : Principal, trx : ICRC1.TransferArgs) : { #Ok; #Err : Types.TransferError; } {
+  func checkVestingRestrictions(caller : Principal, trx : ICRC1.TransferArgs) : {
+    #Ok;
+    #Err : Types.TransferError;
+  } {
+    // TODO Se puede agregar un valor aleatorio y acotado a cada usuario con vesting para evitar
+    // que todos los usuarios de una misma categoria queden con sus tokens liberados al mismo tiempo
     let balance = icrc1().balance_of({ owner = caller; subaccount = null });
     let blocked_amount = calculateBlockedAmount(caller);
-    if (blocked_amount == 0 ) { return #Ok };
+    if (blocked_amount == 0) { return #Ok };
     if (balance >= blocked_amount + trx.amount + icrc1().fee()) {
       #Ok;
     } else {
@@ -308,51 +310,52 @@ shared ({ caller = _owner }) actor class CustomToken(
   //   icrc1().balance_of({ owner = caller; subaccount = null }) - get;
   // };
 
-  func getCurrentPeriodVesting (scheme: Tokenomic.TimeBasedVesting) : {period: Nat; cliff: Int} {
+  func getCurrentPeriodVesting(scheme : Tokenomic.TimeBasedVesting) : { period : Nat; cliff : Int } {
     let currentTime = Int.abs(now());
     let cliff = switch (scheme.cliff) {
       case null { distributionTimestamp };
-      case ( ?c ) { c * 1_000_000_000 }
+      case (?c) { c * 1_000_000_000 };
     };
-    var period = Int.abs( 
-      if (currentTime < cliff) { 0 } 
-      else {
-        let p = ((currentTime - cliff) / (scheme.intervalDuration * NanosPerDay) + 1 );
-        if ( p <= Nat8.toNat(scheme.intervalQty) ) { p } else { Nat8.toNat(scheme.intervalQty) }
+    var period = Int.abs(
+      if (currentTime < cliff) { 0 } else {
+        let p = ((currentTime - cliff) / (scheme.intervalDuration * NanosPerDay) + 1);
+        if (p <= Nat8.toNat(scheme.intervalQty)) { p } else { Nat8.toNat(scheme.intervalQty) };
       }
     );
-    return {period; cliff}
+    return { period; cliff };
   };
 
-  public query func vestingsStatus(): async [Tokenomic.VestingState] {
+  public query func vestingsStatus() : async [Tokenomic.VestingState] {
     let states = Buffer.fromArray<Tokenomic.VestingState>([]);
-    for (vst in vestingSchemes.vals()){
+    for (vst in vestingSchemes.vals()) {
       switch (vst.scheme) {
         case (#timeBasedVesting(scheme)) {
-          let {period; cliff} = getCurrentPeriodVesting(scheme);
-          
-          let state: Tokenomic.VestingState = {
+          let { period; cliff } = getCurrentPeriodVesting(scheme);
+
+          let vState : Tokenomic.VestingState = {
             categoryName = vst.categoryName;
             currentPeriodOverTotal = (period, Nat8.toNat(scheme.intervalQty));
             isBeforeCliff = period == 0;
             isFullyVested = period == Nat8.toNat(scheme.intervalQty);
-            nextReleaseTime = if(period == Nat8.toNat(scheme.intervalQty)) { null } else { ? (cliff + period * scheme.intervalDuration * NanosPerDay) };
-            remainingAmount = 0;
-            vestedAmount = 0;
+            nextReleaseTime = if (period == Nat8.toNat(scheme.intervalQty)) { null } else {
+              ?(cliff + period * scheme.intervalDuration * NanosPerDay);
+            };
+            remainingAmount = 0;  // TODO
+            vestedAmount = 0;     // TODO
           };
-          states.add(state);
+          states.add(vState);
 
         };
-        case _{ };
-      };  
+        case _ {};
+      };
     };
-    Buffer.toArray(states)
+    Buffer.toArray(states);
   };
 
   /// Functions for the ICRC1 token standard
 
-  public shared query func is_ledger_ready(): async Bool {
-    isLedgerReady
+  public shared query func is_ledger_ready() : async Bool {
+    isLedgerReady;
   };
 
   public shared query func icrc1_name() : async Text {

@@ -1,5 +1,5 @@
-#!/bin/bash
-# ------------ Usuario deployer ------------
+# #!/bin/bash
+# # ------------ Usuario deployer ------------
 # dfx identity new 0000TestUser0
 # dfx identity use 0000TestUser0
 # dfx deploy backend

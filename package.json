@@ -16,6 +16,7 @@
   ],
   "scripts": {
     "deploy-with-content": "chmod +x scripts-sh/deploy-with-content.sh; ./scripts-sh/deploy-with-content.sh",
+    "secuencial-deploy": "chmod +x scripts-sh/deploy-general.sh; ./scripts-sh/deploy-general.sh",
     "deploy-token": "chmod +x scripts-sh/deploy-token.sh; ./scripts-sh/deploy-token.sh",
     "test-token": "chmod +x scripts-sh/test-token.sh; ./scripts-sh/test-token.sh",
     "build": "turbo run build",

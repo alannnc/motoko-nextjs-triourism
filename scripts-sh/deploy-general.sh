@@ -18,9 +18,10 @@ dfx canister call backend setMinter '(principal "'$minterCanister'")'
 
 echo -e "\n\nSiguientes pasos: 
   1: Deploy del canister Ledger
-    a: 
   2: Referenciar el ledger en el canister minter 
     dfx canister call icrc1_minter_canister setLedger '(principal "'$(dfx canister id tour)'")'
+  3: Referenciar el canister Minteren el canister principal
+    dfx canister call backend setMinter '(principal "'$(dfx canister id icrc1_minter_canister)'")'
 "
 
 # 
