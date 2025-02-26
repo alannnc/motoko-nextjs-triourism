@@ -351,6 +351,50 @@ shared ({ caller = _owner }) actor class CustomToken(
     };
     Buffer.toArray(states);
   };
+  type VestingInfoResponse = {
+    #WithoutVesting;
+    #VestingInfo:{
+      categoryName: Text;
+      periodOverTotal: (Nat, Nat);
+      nextReleaseTime: ?Int;
+      remainingAmount: Nat;
+      vestedAmount: Nat;
+      allowedAmount: Nat;
+    };
+    #VestingDataError;
+  };
+
+  public shared ({ caller }) func vestingInfo(): async VestingInfoResponse{
+    switch (Map.get<Principal, {value: Nat; schemeIndex: Nat}>(holdersVesting, phash, caller)){
+      case null {#WithoutVesting};
+      case (?{ value; schemeIndex }){
+        let scheme = vestingSchemes[schemeIndex].scheme;
+        switch (scheme){
+          case (#timeBasedVesting(scheme)){
+            let { period; cliff } = getCurrentPeriodVesting(scheme);
+            let remainingAmount = calculateBlockedAmount(caller);
+            if (remainingAmount > value) {
+              return #VestingDataError;
+            };
+            let vestedAmount = Int.abs(value %- remainingAmount);
+            let allowedAmount = Int.abs(icrc1().balance_of({owner = caller; subaccount = null}) %- remainingAmount); 
+            let vState = #VestingInfo {
+              categoryName = vestingSchemes[schemeIndex].categoryName;
+              periodOverTotal = (period, Nat8.toNat(scheme.intervalQty));
+              nextReleaseTime = if (period == Nat8.toNat(scheme.intervalQty)) { null } else {
+                ?(cliff + period * scheme.intervalDuration * NanosPerDay);
+              };
+              remainingAmount;
+              vestedAmount;
+              allowedAmount;
+            };
+            return vState;
+          };
+          case _ {#WithoutVesting};
+        };
+      }
+    };
+  };
 
   /// Functions for the ICRC1 token standard
 
