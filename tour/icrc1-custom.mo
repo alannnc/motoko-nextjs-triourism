@@ -373,9 +373,7 @@ shared ({ caller = _owner }) actor class CustomToken(
           case (#timeBasedVesting(scheme)){
             let { period; cliff } = getCurrentPeriodVesting(scheme);
             let remainingAmount = calculateBlockedAmount(caller);
-            if (remainingAmount > value) {
-              return #VestingDataError;
-            };
+            if (remainingAmount > value) { return #VestingDataError };
             let vestedAmount = Int.abs(value %- remainingAmount);
             let allowedAmount = Int.abs(icrc1().balance_of({owner = caller; subaccount = null}) %- remainingAmount); 
             let vState = #VestingInfo {

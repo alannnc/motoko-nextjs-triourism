@@ -74,8 +74,17 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     // stable var TimeToPay = 30 * 60 * 1_000_000_000;    // Tiempo sugerido 30 minutos
     stable var MinDaysBeforeCheckinForCancellation = 4;   // Minimo de dias antes del checkin para cancelar una reserva pagando CancellationFeeCompensateBuyer
 
-    stable var ICPvTourRewardRatio: RewardRatio = #TOUR_DIVIDES_ICP(2); // Cambiar por un Nat
     stable var RewardRatio: Nat64 = 1000; // eg. RewardRatio = 1000; -> 1000 USD = 1 Tour
+
+    type TokenCIDs = {ledgerId: Principal; indexerId: Principal};
+    stable let acceptedTokens = Map.fromIter<Text, TokenCIDs>([
+        ("ICP",   ({ledgerId = Principal.fromText("ryjl3-tyaaa-aaaaa-aaaba-cai"); indexerId = Principal.fromText("qhbym-qaaaa-aaaaa-aaafq-cai")})),
+        ("CKBTC", ({ledgerId = Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai"); indexerId = Principal.fromText("n5wcd-faaaa-aaaar-qaaea-cai")})),
+        ("CKETH", ({ledgerId = Principal.fromText("ss2fx-dyaaa-aaaar-qacoq-cai"); indexerId = Principal.fromText("s3zol-vqaaa-aaaar-qacpa-cai")})),
+        ("CKUSDC",({ledgerId = Principal.fromText("xevnm-gaaaa-aaaar-qafnq-cai"); indexerId = Principal.fromText("xrs4b-hiaaa-aaaar-qafoa-cai")})),
+        ].vals(),
+        thash
+    );
     
     //////////////////////////////// Core Data Structures ///////////////////////
      
@@ -228,6 +237,10 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         }   
     };
 
+    public query func getTokenList(): async [(Text, TokenCIDs)] {
+        Iter.toArray<(Text, TokenCIDs)>(Map.entries<Text, TokenCIDs>(acceptedTokens) );
+    };
+
 
     //////////////////////////////// CRUD Data User ///////////////////////////////////
 
@@ -330,16 +343,20 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         0
     };
 
-    public shared ({ caller }) func setICPvTourRewardRatio(ratio: RewardRatio): async {#Ok; #Err}{
-        if(not isAdmin(caller)) { return #Err };
-        ICPvTourRewardRatio := ratio;
-        #Ok
-    };
-
     public shared ({ caller }) func serRewardRatio(v: Nat64): async {#Ok; #Err}{
         if(not isAdmin(caller)) { return #Err };
         RewardRatio := v;
         #Ok
+    };
+
+    public shared ({ caller }) func addToken({symbol: Text; ledgerId: Principal; indexerId: Principal }): async (){
+        assert(isAdmin(caller));
+        ignore Map.put<Text, TokenCIDs>(acceptedTokens, thash, symbol, {ledgerId; indexerId});
+    };
+
+    public shared ({ caller }) func removeToken(): async (){
+        assert(isAdmin(caller));
+        Map.delete(acceptedTokens, thash, "ICP");
     };
 
     public shared ({ caller }) func updateSettings(config: Types.Settings): async Bool{
@@ -1168,7 +1185,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
     };
 
     public shared ({ caller = requester }) func requestReservation(data: Types.ReservationDataInput): async TransactionResponse {
-        let {housingId; guest; email; phone; checkIn; checkOut}: Types.ReservationDataInput = data;
+        let {housingId; guest; email; phone; checkIn; checkOut; paymentCoin}: Types.ReservationDataInput = data;
         let housing = Map.get<HousingId, Housing>(housings, nhash, housingId);
         if ( not Map.has<Principal, User>(users, phash, requester) ) { 
             return #Err(msg.NotUser)
@@ -1185,6 +1202,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                     let amount = calculatePrice(housing.price,  Prim.abs(checkOut - checkIn));
                     let reservation: Reservation = {
                         date = now();
+                        paymentCoin;
                         timestampCheckIn = (now() - now() % nanoSecPerDay) + (checkIn * nanoSecPerDay) /* + (housing.checkIn * 60 * 60 * 1000000000) */;
                         housingId;
                         reservationId = lastReservationId;
@@ -1217,11 +1235,18 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         } 
     };
 
-    func verifyTransaction({from; to; amount}: DataTransaction, registeredAmount: Nat64): async Bool {
-        // TODO Verificar tambien aca 
+    func verifyTransaction({token; from; to; amount}: DataTransaction, registeredAmount: Nat64): async Bool {
+
+        
+        // TODO Verificar tambien aca
+        let indexerCanisterId = switch( Map.get<Text, TokenCIDs>(acceptedTokens, thash, token)) {
+            case null {return false };
+            case (?tokenCIDs) { 
+                Principal.toText(tokenCIDs.indexerId) }
+        };
         return true; // Test
         if(amount != registeredAmount) { return false };
-        let indexer_icp = actor("qhbym-qaaaa-aaaaa-aaafq-cai"): actor {
+        let indexer_icp = actor(indexerCanisterId): actor {
                 get_account_identifier_transactions : 
                     shared query Indexer_icp.GetAccountIdentifierTransactionsArgs -> async Indexer_icp.GetAccountIdentifierTransactionsResult;
         };

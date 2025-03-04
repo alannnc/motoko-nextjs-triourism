@@ -226,6 +226,7 @@ module {
     };
 
     public type ReservationDataInput = {
+        paymentCoin: Text;
         housingId: HousingId;
         checkIn: Int;    // Número de día de ingreso. Siendo 0 el día actual
         checkOut: Int;   // El egreso tiene que ser mayor que 1 + el ingreso
@@ -257,6 +258,7 @@ module {
     };
 
     public let NullTrx: DataTransaction = {
+        token = "";
         from = "";
         to = "";
         amount = 0
@@ -268,6 +270,7 @@ module {
     };
 
     public type DataTransaction = TransactionParams and {
+        token: Text;
         from: Text;
     };
 
