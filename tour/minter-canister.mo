@@ -53,7 +53,7 @@ shared ({ caller = Deployer}) actor class Minter({triourismCanisterId: Principal
     stable var _fee: ?Nat = null;
 
     func pool_rewards_account(): Account {
-      {owner = Principal.fromActor(this); subaccount = ? "PoolRewards00000000000000000000"}
+      {owner = Principal.fromActor(this); subaccount = ? "PoolRewards000000000000000000000"}
     };
 
     func fees_collector_account(): Account {
@@ -116,6 +116,20 @@ shared ({ caller = Deployer}) actor class Minter({triourismCanisterId: Principal
 
     public query func getLedgerCanisterId(): async Principal {
       Principal.fromActor(LedgerActor);
+    };
+
+    public shared ({ caller }) func mint({to: Account; amount: Nat}): async {#Err : Text; #Ok : Nat}{
+      assert(caller == Deployer);
+      switch (await LedgerActor.mint{
+        to;
+        amount ; 
+        memo: ?Blob = null;
+        created_at_time = ? Nat64.fromNat(Int.abs(now()));
+      }){
+        case (#Err(_)) { #Err("Mint Error") };
+        case (#Ok(e)) { #Ok(e) }
+      };
+
     };
 
   /////////////////////////////////////// Mint section ////////////////////////////////////////////////////////////////

@@ -7,6 +7,7 @@ import ICRC1 "mo:icrc1-mo/ICRC1";
 import ICRC2 "mo:icrc2-mo/ICRC2";
 import { print } "mo:base/Debug";
 import Array "mo:base/Array";
+import Nat64 "mo:base/Nat64";
 
 /*
     get_blocks : shared query GetBlocksRequest -> async GetBlocksResponse;
@@ -15,10 +16,9 @@ import Array "mo:base/Array";
     status : shared query () -> async Status;
 */
 
+shared ({caller = ledgerCanisterId })  actor class Indexer() = this {
 
-shared ({caller = LedgerCanisterId}) actor class Indexer() = this {
-
-    let ledger = actor( Principal.toText(LedgerCanisterId) ): actor {
+    let ledger = actor( Principal.toText(ledgerCanisterId) ): actor {
         icrc1_decimals: shared query () -> async Nat8;
         icrc1_fee: shared query () -> async Nat;
         // icrc1_metadata: shared query () -> async [ICRC1.MetaDatum];
@@ -38,21 +38,23 @@ shared ({caller = LedgerCanisterId}) actor class Indexer() = this {
     type TokenTransferredListener = ICRC1.TokenTransferredListener;
     type Account = {owner: Principal; subaccount: ?Blob};
 
-    stable let accountsTransactions = Map.new<Account, [ICRC1.Transaction]>();
+    stable let accountsTransactions = Map.new<Account, GetTransactions>();
     stable var transactions: [ICRC1.Transaction] = [];
 
     private func pull_missing_transactions(): async () {
         let _transactionsPulled: [ICRC1.Transaction] = await ledger.getTransactionRange(transactions.size(), null);
+        var currentIndex = transactions.size();
         transactions := Array.tabulate<ICRC1.Transaction>(
             transactions.size() + _transactionsPulled.size(), 
             func i = if (i < transactions.size()) { transactions[i] } else { _transactionsPulled[i - transactions.size()] }
         );
         for (trx in _transactionsPulled.vals()) {
-            index_transaction(trx)
+            index_transaction(trx, currentIndex);
+            currentIndex += 1;
         };
     };
 
-    private func index_transaction(trx: ICRC1.Transaction) {
+    private func index_transaction(trx: ICRC1.Transaction, index: Nat) {
         let accounts = switch (trx.kind) {
             case "TRANSFER" {
                 switch (trx.transfer) {
@@ -76,36 +78,95 @@ shared ({caller = LedgerCanisterId}) actor class Indexer() = this {
             case _ { [] }
         };
         for (account in accounts.vals() ){
-            let trxsPrevious = Map.get<Account, [ICRC1.Transaction]>(accountsTransactions, ICRC1.ahash, account);
+            let trxsPrevious = Map.get<Account, GetTransactions>(accountsTransactions, ICRC1.ahash, account);
             switch (trxsPrevious) {
-                case null { 
-                    ignore Map.put<Account, [ICRC1.Transaction]>(accountsTransactions, ICRC1.ahash, account, [trx]) 
+                case null {
+                    let balance = 0;
+                    let transactions = [{id = Nat64.fromNat(index); transaction = trx}];
+                    let oldest_tx_id = ?index;
+                    ignore Map.put<Account, GetTransactions>(accountsTransactions, ICRC1.ahash, account, {balance; transactions; oldest_tx_id}) 
                 };
                 case (?trxsPrevious) {
-                    let updatedTrxs = Array.tabulate<ICRC1.Transaction>(
-                        trxsPrevious.size() + 1, 
-                        func i =   if (i == 0) { trx } else { trxsPrevious[i - 1] }
+                    let updatedTrxs = Array.tabulate<TransactionWithId>(
+                        trxsPrevious.transactions.size() + 1, 
+                        func i =   if (i == 0) { {id = Nat64.fromNat(index); transaction = trx} } else { trxsPrevious.transactions[i - 1] }
                     );
-                    ignore Map.put(accountsTransactions, ICRC1.ahash, account, updatedTrxs) 
+                    ignore Map.put(accountsTransactions, ICRC1.ahash, account, {trxsPrevious with transactions = updatedTrxs})  // TODO actualizar balance
                 };
             };
         };
     };
 
     public shared ({ caller }) func on_transaction(trx: ICRC1.Transaction, index: Nat) : () {
-        assert( caller == LedgerCanisterId);
+        assert( caller == ledgerCanisterId);
         assert( index >= transactions.size());
         if (index == transactions.size()) {
-            index_transaction(trx)
+            transactions := Array.tabulate<ICRC1.Transaction>(
+                transactions.size() + 1, 
+                func i = if (i < transactions.size()) { transactions[i] } else { trx }
+            );
+            index_transaction(trx, index: Nat)
         } else {
             await pull_missing_transactions();
         }; 
     };
 
-    public query func get_account_transactions(account: Account): async [ICRC1.Transaction] {
-        switch (Map.get<Account, [ICRC1.Transaction]>(accountsTransactions, ICRC1.ahash, account)){
-            case null { [] };
-            case (?trxs) { trxs };
+    /////// Get account transactions ///////////
+
+    type GetAccountTransactionsArgs = {
+        max_results : Nat;
+        start : ?Nat;
+        account : Account;
+    };
+
+    type TransactionWithId = { 
+        id : Nat64;
+        transaction : ICRC1.Transaction 
+    };
+
+    public type GetTransactions = {
+        balance : Nat;
+        transactions : [TransactionWithId];
+        oldest_tx_id : ?Nat;
+    };
+    public type GetTransactionsErr = { 
+        message : Text 
+    };
+    public type GetTransactionsResult = {
+        #Ok : GetTransactions;
+        #Err : GetTransactionsErr;
+    };
+
+    public query func get_account_transactions({max_results; start; account}: GetAccountTransactionsArgs): async GetTransactionsResult {
+        switch (Map.get<Account, GetTransactions>(accountsTransactions, ICRC1.ahash, account)){
+            case null { #Ok({balance = 0; transactions = []; oldest_tx_id = null}) };
+            case (?getTransactions) {
+                let _start = switch start { case null { transactions.size() }; case (?start) { start } };
+                switch (getTransactions.oldest_tx_id){
+                    case null {
+                        return #Ok({balance = getTransactions.balance; transactions = []; oldest_tx_id = null})
+                    };
+                    case (?oldest_tx_id) {
+                        if (oldest_tx_id >= _start){
+                            return #Ok({getTransactions with transactions = []})
+                        } else {
+
+                            var filteredTrxs = Array.filter<TransactionWithId>(
+                                getTransactions.transactions, 
+                                func trx = trx.id < Nat64.fromNat(_start)
+                            );
+                            if (filteredTrxs.size() <= max_results){
+                                return #Ok({getTransactions with transactions = filteredTrxs})
+                            } else {
+                                let subarray = Array.subArray<TransactionWithId>(filteredTrxs, filteredTrxs.size() - max_results, max_results);
+                                return #Ok({getTransactions with transactions = subarray})
+                            };         
+                        };
+                        #Err({message = "sd"})
+                    }
+                }
+                
+            };
         };
     };
 
@@ -113,18 +174,10 @@ shared ({caller = LedgerCanisterId}) actor class Indexer() = this {
         await ledger.icrc1_balance_of(a)
     };
 
-    // public query func get_account_transactions({max_results : Nat; start : ?Nat; account : Account}): async GetTransactionsResult{
-
-    // };
-
     public query func ledger_id(): async Principal{
-        LedgerCanisterId
+        ledgerCanisterId
     };
-
-
-
     
-
 }
 
 

@@ -87,7 +87,17 @@ shared ({ caller = _owner }) actor class CustomToken(
   stable var vestingSchemes : [{ categoryName : Text; scheme : Tokenomic.VestingScheme; ended : Bool }] = [];
   stable var isLedgerReady = false;
 
-  //////
+  //////////////////////////////////////////////////////////////////////////////////
+
+  //////////////////// set indexer para debug de indexer ///////////////////////////
+
+  // public shared ({ caller }) func setIndexer(i: Principal): async (){
+  //   assert(caller == _owner);
+  //   _indexer := ?actor(Principal.toText(i));
+  //   ()
+  // };
+
+  //////////////////////////////////////////////////////////////////////////////////
 
   let #v0_1_0(#data(icrc1_state_current)) = icrc1_migration_state;
 
@@ -232,6 +242,7 @@ shared ({ caller = _owner }) actor class CustomToken(
     assert (caller == _owner);
     let indexerCanisterId = await deploy_indexer();
     print("Indexer canister deployed at " # debug_show (indexerCanisterId));
+    isLedgerReady := true;
     switch ledgerArgs {
       case (#Init(_)) {
         switch (customArgs.distribution) {
@@ -243,7 +254,6 @@ shared ({ caller = _owner }) actor class CustomToken(
       };
       case (_) { return #Ok };
     };
-
   };
 
   /////////////////////// vesting validations /////////////////////

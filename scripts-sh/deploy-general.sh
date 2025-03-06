@@ -17,11 +17,17 @@ echo "Seteando referencia al canister minter en el canister backend..."
 dfx canister call backend setMinter '(principal "'$minterCanister'")'
 
 echo -e "\n\nSiguientes pasos: 
-  1: Deploy del canister Ledger
-  2: Referenciar el ledger en el canister minter 
+  // Deploy del canister Ledger 
+    npm run deploy-token
+  // Referenciar el ledger en el canister minter 
     dfx canister call icrc1_minter_canister setLedger '(principal "'$(dfx canister id tour)'")'
-  3: Referenciar el canister Minteren el canister principal
+  // Referenciar el canister Minter en el canister principal
     dfx canister call backend setMinter '(principal "'$(dfx canister id icrc1_minter_canister)'")'
 "
-
+echo "Deploy del canister Ledger"
+npm run deploy-token
+echo "Referenciar el ledger en el canister minter"
+dfx canister call icrc1_minter_canister setLedger '(principal "'$(dfx canister id tour)'")'
+echo "Referenciar el canister Minter en el canister principal"
+dfx canister call backend setMinter '(principal "'$(dfx canister id icrc1_minter_canister)'")'
 # 

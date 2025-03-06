@@ -1237,7 +1237,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
 
     func verifyTransaction({token; from; to; amount}: DataTransaction, registeredAmount: Nat64): async Bool {
 
-        
+
         // TODO Verificar tambien aca
         let indexerCanisterId = switch( Map.get<Text, TokenCIDs>(acceptedTokens, thash, token)) {
             case null {return false };
@@ -1246,12 +1246,24 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
         };
         return true; // Test
         if(amount != registeredAmount) { return false };
-        let indexer_icp = actor(indexerCanisterId): actor {
-                get_account_identifier_transactions : 
+        let response = switch token {
+            case "ICP" {
+                await (actor(indexerCanisterId): actor {
+                    get_account_identifier_transactions : 
                     shared query Indexer_icp.GetAccountIdentifierTransactionsArgs -> async Indexer_icp.GetAccountIdentifierTransactionsResult;
+                }).get_account_identifier_transactions({max_results = 10; start = null; account_identifier = from});
+            };
+            case _ { 
+                await (actor(indexerCanisterId): actor {
+                    get_account_transactions: 
+                    shared query Indexer_icp.GetAccountIdentifierTransactionsArgs -> async Indexer_icp.GetAccountIdentifierTransactionsResult;
+                }).get_account_transactions({max_results = 10; start = null; account_identifier = from});
+            };
         };
-        let result = await indexer_icp.get_account_identifier_transactions({max_results = 10; start = null; account_identifier = from});
-        switch result {
+        
+
+        // let result = await indexer.get_account_identifier_transactions({max_results = 10; start = null; account_identifier = from});
+        switch response {
             case (#Ok(response)) {
                 for (transaction in response.transactions.vals()) {
                     let operation = transaction.transaction.operation;
@@ -1270,12 +1282,6 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
             };
             case (#Err(_)) { false }
         }
-    };
-
-    func calculateReward(amount: Nat64, coin: Text): async  Nat64 {
-        let urlApi = "https://api3.binance.com/api/v3/ticker/price?symbol=" # Text.toUppercase(coin) # "USDT";
-        //TODO convertir amount al equivalente en usdt
-        1 * amount / RewardRatio;
     };
 
     public shared ({ caller }) func confirmReservation({reservationId: Nat; txData: DataTransaction}): async {#Ok: Reservation; #Err: Text} {
@@ -1315,7 +1321,7 @@ shared ({ caller = DEPLOYER }) actor class Triourism () = this {
                         ///// Rewards for confirm reservation ////////////////////////////////////////////////////
                             // TODO calcular recompenza en base al aquialente en dolares de reservation.amount
                             if (Principal.fromActor(TourMinterCanister) != Principal.fromText(NULL_ADDRESS)){
-                                let rewardAmount = await calculateReward(reservation.amount, "ICP"); 
+                                let rewardAmount = reservation.amount / RewardRatio; 
                                 print("Mintenado recompenza: " # debug_show(rewardAmount) # " Tour");
                                 let accounts = [
                                     {owner = caller; subaccount = null },

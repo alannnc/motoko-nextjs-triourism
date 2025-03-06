@@ -27,11 +27,11 @@
       "candid": "https://raw.githubusercontent.com/dfinity/ic/a62848817cec7ae50618a87a526c85d020283fd9/rs/ledger_suite/icrc1/index-ng/index-ng.did",
       "wasm": "https://download.dfinity.systems/ic/a62848817cec7ae50618a87a526c85d020283fd9/canisters/ic-icrc1-index-ng.wasm.gz"
     },
+
     "icrc1_minter_canister": {
       "type": "motoko",
       "main": "tour/minter-canister.mo"
     },
-
     "test": {
       "type": "motoko",
       "main": "backend/test/main.mo",
